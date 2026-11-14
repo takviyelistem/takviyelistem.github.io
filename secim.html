@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Secim sayfasi: kisa link (Firestore ?l=KOD), ayni secimde ayni kod tekrar kullanilir ---15/11/2026---01:10 -->
+<!--- Secim sayfasi: Gunde sayaci + Ac/Tok/Sabah/Aksam butonlari (istege bagli) ---15/11/2026---01:40 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -31,6 +31,10 @@
   .adetSat { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:14px; }
   .adetSat button { width:34px; height:34px; border-radius:8px; border:1px solid var(--cizgi); background:#fff; font-size:18px; }
   .adetSat span { min-width:24px; text-align:center; font-weight:700; }
+  .adetSat .etiket { min-width:52px; }
+  .zamanlar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .zaman { border:1px solid var(--cizgi); background:#fff; border-radius:16px; padding:6px 14px; font-size:14px; cursor:pointer; }
+  .zaman.aktif { background:var(--ana); color:#fff; border-color:var(--ana); }
   textarea { height:56px; resize:vertical; font-size:15px; }
   .bos { text-align:center; color:var(--gri); padding:30px 10px; }
   .alt { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--cizgi); padding:10px 12px; display:flex; gap:8px; align-items:center; z-index:6; }
@@ -83,7 +87,7 @@
 <div class="bildirim" id="bildirim"></div>
 
 <script>
-//--- Ortak: Firebase (Firestore REST) ayarlari ve kayit/okuma fonksiyonlari ---15/11/2026---01:10
+//--- Ortak: Firebase (Firestore REST) kayit/okuma + gunde (g) ve zaman (z) alanlari ---15/11/2026---01:40
 // Firestore REST API kullanılıyor (SDK yüklemeye gerek yok).
 // Erişim izinleri Firestore Rules ile kontrol ediliyor: sadece yeni kayıt + kodla okuma.
 
@@ -105,7 +109,7 @@ function kodUret() {
   return kod;
 }
 
-// liste: [{ id, adet, not }], kisi: string  ->  kod (string)
+// liste: [{ id, adet, gunde, zaman:["Aç","Sabah",...], not }], kisi: string  ->  kod (string)
 async function listeKaydet(liste, kisi) {
   const govde = {
     fields: {
@@ -113,6 +117,8 @@ async function listeKaydet(liste, kisi) {
         mapValue: { fields: {
           i: { stringValue: String(x.id) },
           a: { integerValue: String(x.adet) },
+          g: { integerValue: String(x.gunde || 1) },
+          z: { stringValue: (x.zaman || []).join(",") },
           n: { stringValue: String(x.not || "") }
         } }
       })) } },
@@ -150,6 +156,8 @@ async function listeOku(kod) {
     return {
       id: m.i ? m.i.stringValue : "",
       adet: m.a ? parseInt(m.a.integerValue, 10) || 1 : 1,
+      gunde: m.g ? parseInt(m.g.integerValue, 10) || 0 : 0,
+      zaman: m.z && m.z.stringValue ? m.z.stringValue.split(",") : [],
       not: m.n ? m.n.stringValue : ""
     };
   });
@@ -158,6 +166,7 @@ async function listeOku(kod) {
 </script>
 <script>
 const KAYIT_ANAHTAR = 'takviyeSecim_v1';
+const ZAMANLAR = ['Aç', 'Tok', 'Sabah', 'Akşam'];
 let urunler = [];
 let secim = new Map();        // id -> { adet, not }  (ekleme sırası korunur)
 let aktifKategori = 'Tümü';
@@ -189,7 +198,12 @@ function yukleKayit() {
     const k = JSON.parse(localStorage.getItem(KAYIT_ANAHTAR) || 'null');
     if (!k) return;
     const gecerli = new Set(urunler.map(u => u.id));
-    secim = new Map((k.secim || []).filter(([id]) => gecerli.has(id)));
+    secim = new Map((k.secim || []).filter(([id]) => gecerli.has(id)).map(([id, s]) => [id, {
+      adet: s.adet || 1,
+      gunde: s.gunde || 1,
+      zaman: Array.isArray(s.zaman) ? s.zaman : [],
+      not: s.not || ''
+    }]));
     $('kisi').value = k.kisi || '';
   } catch (e) {}
 }
@@ -231,12 +245,20 @@ function listeyiCiz() {
           <div class="tik">${s ? '✓' : ''}</div>
         </div>
         <div class="detay">
-          <div class="adetSat">Adet:
-            <button data-islem="eksi">−</button>
-            <span>${s ? s.adet : 1}</span>
-            <button data-islem="arti">+</button>
+          <div class="adetSat"><span class="etiket">Adet:</span>
+            <button data-islem="eksi" data-alan="adet">−</button>
+            <span data-deger="adet">${s ? s.adet : 1}</span>
+            <button data-islem="arti" data-alan="adet">+</button>
           </div>
-          <textarea data-islem="not" placeholder="Kullanım notu (ör. Günde 1 kapsül, yemekten sonra)">${s ? esc(s.not) : ''}</textarea>
+          <div class="adetSat"><span class="etiket">Günde:</span>
+            <button data-islem="eksi" data-alan="gunde">−</button>
+            <span data-deger="gunde">${s ? s.gunde : 1}</span>
+            <button data-islem="arti" data-alan="gunde">+</button>
+          </div>
+          <div class="zamanlar">${ZAMANLAR.map(z =>
+            `<button class="zaman ${s && s.zaman.includes(z) ? 'aktif' : ''}" data-islem="zaman" data-zaman="${z}">${z}</button>`
+          ).join('')}</div>
+          <textarea data-islem="not" placeholder="Açıklama (isteğe bağlı)">${s ? esc(s.not) : ''}</textarea>
         </div>
       </div>`;
     }).join('');
@@ -255,7 +277,11 @@ let sonImza = '';
 let sonKod = '';
 
 async function linkOlustur() {
-  const liste = [...secim.entries()].map(([id, s]) => ({ id, adet: s.adet, not: (s.not || '').trim() }));
+  const liste = [...secim.entries()].map(([id, s]) => ({
+    id, adet: s.adet, gunde: s.gunde,
+    zaman: ZAMANLAR.filter(z => s.zaman.includes(z)),   // sabit sırada kaydet
+    not: (s.not || '').trim()
+  }));
   const kisi = $('kisi').value.trim();
   const imza = JSON.stringify([liste, kisi]);
   if (imza !== sonImza || !sonKod) {
@@ -274,7 +300,7 @@ $('liste').addEventListener('click', e => {
   const islem = e.target.closest('[data-islem]')?.dataset.islem;
 
   if (islem === 'sec') {
-    if (secim.has(id)) secim.delete(id); else secim.set(id, { adet: 1, not: '' });
+    if (secim.has(id)) secim.delete(id); else secim.set(id, { adet: 1, gunde: 1, zaman: [], not: '' });
     kaydet();
     listeyiCiz();
     if (secim.has(id)) {
@@ -284,8 +310,22 @@ $('liste').addEventListener('click', e => {
   } else if (islem === 'arti' || islem === 'eksi') {
     const s = secim.get(id);
     if (!s) return;
-    s.adet = Math.min(99, Math.max(1, s.adet + (islem === 'arti' ? 1 : -1)));
-    kart.querySelector('.adetSat span').textContent = s.adet;
+    const alan = e.target.dataset.alan;            // 'adet' veya 'gunde'
+    s[alan] = Math.min(99, Math.max(1, s[alan] + (islem === 'arti' ? 1 : -1)));
+    kart.querySelector(`[data-deger="${alan}"]`).textContent = s[alan];
+    kaydet();
+  } else if (islem === 'zaman') {
+    const s = secim.get(id);
+    if (!s) return;
+    const z = e.target.dataset.zaman;
+    if (s.zaman.includes(z)) {
+      s.zaman = s.zaman.filter(x => x !== z);
+    } else {
+      // Aç ve Tok birlikte seçilemez
+      const zit = { 'Aç': 'Tok', 'Tok': 'Aç' }[z];
+      s.zaman = s.zaman.filter(x => x !== zit).concat(z);
+    }
+    kart.querySelectorAll('.zaman').forEach(b => b.classList.toggle('aktif', s.zaman.includes(b.dataset.zaman)));
     kaydet();
   }
 });
