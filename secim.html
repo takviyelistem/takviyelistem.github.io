@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Secim sayfasi: Gunde sayaci + Ac/Tok/Sabah/Aksam butonlari (istege bagli) ---15/11/2026---01:40 -->
+<!--- Secim sayfasi: link olusturulan secim bir dahaki acilista gelmez + Yeni Liste butonu ---15/11/2026---01:50 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -79,7 +79,8 @@
       <button class="btn wa" id="whatsapp">WhatsApp</button>
       <button class="btn ikincil" id="onizle">Önizle</button>
       <button class="btn ikincil" id="paylas">Paylaş</button>
-      <button class="btn ikincil tam" id="kapat">Kapat</button>
+      <button class="btn ikincil" id="yeniListe">Yeni Liste</button>
+      <button class="btn ikincil" id="kapat">Kapat</button>
     </div>
   </div>
 </div>
@@ -184,19 +185,36 @@ function norm(s) {
     .replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c').replace(/i̇/g,'i');
 }
 
-function kaydet() {
+// linklendi=true: bu seçimin linki oluşturuldu -> sayfa bir dahaki açılışta boş başlar.
+// Link oluşturulmadan sayfa kapanırsa (yanlışlıkla) seçimler geri gelir.
+function kaydet(linklendi = false) {
   try {
     localStorage.setItem(KAYIT_ANAHTAR, JSON.stringify({
       secim: [...secim.entries()],
-      kisi: $('kisi').value
+      kisi: $('kisi').value,
+      linklendi: linklendi === true
     }));
   } catch (e) {}
+}
+
+function yeniListe() {
+  secim.clear();
+  $('kisi').value = '';
+  $('ara').value = '';
+  aktifKategori = 'Tümü';
+  sonImza = '';
+  sonKod = '';
+  try { localStorage.removeItem(KAYIT_ANAHTAR); } catch (e) {}
+  kategorileriCiz();
+  listeyiCiz();
+  window.scrollTo(0, 0);
 }
 
 function yukleKayit() {
   try {
     const k = JSON.parse(localStorage.getItem(KAYIT_ANAHTAR) || 'null');
     if (!k) return;
+    if (k.linklendi) { localStorage.removeItem(KAYIT_ANAHTAR); return; }
     const gecerli = new Set(urunler.map(u => u.id));
     secim = new Map((k.secim || []).filter(([id]) => gecerli.has(id)).map(([id, s]) => [id, {
       adet: s.adet || 1,
@@ -288,6 +306,7 @@ async function linkOlustur() {
     sonKod = await listeKaydet(liste, kisi);
     sonImza = imza;
   }
+  kaydet(true);
   const taban = location.origin + location.pathname.replace(/secim\.html$/, '');
   return taban + '?l=' + sonKod;
 }
@@ -346,15 +365,12 @@ $('kategoriler').addEventListener('click', e => {
 });
 
 $('ara').addEventListener('input', listeyiCiz);
-$('kisi').addEventListener('input', kaydet);
+$('kisi').addEventListener('input', () => kaydet());
 
 $('temizle').addEventListener('click', () => {
   if (!secim.size && !$('kisi').value) return;
   if (!confirm('Tüm seçimler ve kişi adı silinsin mi?')) return;
-  secim.clear();
-  $('kisi').value = '';
-  kaydet();
-  listeyiCiz();
+  yeniListe();
 });
 
 $('olustur').addEventListener('click', async () => {
@@ -373,6 +389,10 @@ $('olustur').addEventListener('click', async () => {
 });
 
 $('kapat').addEventListener('click', () => $('perde').classList.remove('acik'));
+$('yeniListe').addEventListener('click', () => {
+  $('perde').classList.remove('acik');
+  yeniListe();
+});
 $('perde').addEventListener('click', e => { if (e.target.id === 'perde') $('perde').classList.remove('acik'); });
 
 $('kopyala').addEventListener('click', async () => {
