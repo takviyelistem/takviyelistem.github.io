@@ -1,0 +1,26 @@
+{
+  "baslik": "Takviye Listem",
+  "urunler": [
+    {
+      "id": "25564059",
+      "ad": "Magnimore Plus Magnezyum 60 Tablet N-Asetil Taurinat Bisglisinat Malat",
+      "kategori": "Mineral",
+      "gorsel": "https://cdn.dsmcdn.com/ty1747/product/media/images/prod/PIM/20251003/13/d5bbe05e-8243-4dc4-9b18-ae7714af8a64/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/magnimore/plus-magnezyum-60-tablet-n-asetil-taurinat-bisglisinat-malat-p-25564059?boutiqueId=61&merchantId=1088906"
+    },
+    {
+      "id": "1137774464",
+      "ad": "Vitafenix Safran 30 Kapsül",
+      "kategori": "Bitkisel",
+      "gorsel": "https://cdn.dsmcdn.com/ty1931/prod/QC_ENRICHMENT/20260430/17/93858589-1611-344b-a978-5d352be6d6c8/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/vitafenix/safran-30-kapsul-p-1137774464?boutiqueId=61&merchantId=704308"
+    },
+    {
+      "id": "96005667",
+      "ad": "Osende Vitamin D3K2 Kompleks Damla 20ml",
+      "kategori": "Vitamin",
+      "gorsel": "https://cdn.dsmcdn.com/ty1905/prod/QC_ENRICHMENT/20260611/09/ae508d1a-461a-398c-ac42-578270bb6fd7/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/osende/vitamin-d3k2-kompleks-damla-20ml-p-96005667?boutiqueId=61&merchantId=205520"
+    }
+  ]
+}

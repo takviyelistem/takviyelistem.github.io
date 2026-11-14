@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<!--- Secim sayfasi: arama/kategori, adet+not, link olustur/kopyala/WhatsApp ---14/11/2026---21:00 -->
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Takviye Seçimi</title>
+<style>
+  :root { --ana:#f27a1a; --koyu:#333; --gri:#777; --zemin:#f5f5f5; --cizgi:#e3e3e3; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--zemin); color:var(--koyu); padding-bottom:90px; }
+  .ust { position:sticky; top:0; z-index:5; background:#fff; padding:10px 12px; border-bottom:1px solid var(--cizgi); }
+  .ust h1 { margin:0 0 8px; font-size:17px; }
+  input[type=search], input[type=text], textarea { width:100%; font-size:16px; padding:9px 10px; border:1px solid var(--cizgi); border-radius:8px; font-family:inherit; }
+  .kisi { margin-top:8px; }
+  .kategoriler { display:flex; gap:6px; overflow-x:auto; margin-top:8px; padding-bottom:2px; }
+  .kat { flex-shrink:0; border:1px solid var(--cizgi); background:#fff; border-radius:16px; padding:5px 12px; font-size:13px; cursor:pointer; }
+  .kat.aktif { background:var(--ana); color:#fff; border-color:var(--ana); }
+  main { max-width:640px; margin:0 auto; padding:10px; }
+  .urun { background:#fff; border-radius:10px; margin-bottom:8px; border:2px solid transparent; }
+  .urun.secili { border-color:var(--ana); }
+  .satir { display:flex; gap:10px; align-items:center; padding:8px; cursor:pointer; }
+  .satir img { width:54px; height:72px; object-fit:contain; background:#fafafa; border-radius:6px; flex-shrink:0; }
+  .satir .ad { flex:1; font-size:14px; line-height:1.3; }
+  .satir .ad small { display:block; color:var(--gri); margin-top:2px; }
+  .tik { width:26px; height:26px; border-radius:50%; border:2px solid var(--cizgi); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
+  .secili .tik { background:var(--ana); border-color:var(--ana); }
+  .detay { display:none; padding:0 8px 10px; }
+  .secili .detay { display:block; }
+  .adetSat { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:14px; }
+  .adetSat button { width:34px; height:34px; border-radius:8px; border:1px solid var(--cizgi); background:#fff; font-size:18px; }
+  .adetSat span { min-width:24px; text-align:center; font-weight:700; }
+  textarea { height:56px; resize:vertical; font-size:15px; }
+  .bos { text-align:center; color:var(--gri); padding:30px 10px; }
+  .alt { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--cizgi); padding:10px 12px; display:flex; gap:8px; align-items:center; z-index:6; }
+  .alt .sayi { flex:1; font-size:14px; }
+  .btn { border:0; border-radius:8px; padding:11px 14px; font-size:15px; font-weight:600; cursor:pointer; }
+  .btn.ana { background:var(--ana); color:#fff; }
+  .btn.ikincil { background:#eee; color:var(--koyu); }
+  .btn.wa { background:#25d366; color:#fff; }
+  .btn:disabled { opacity:.45; }
+  .perde { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:10; align-items:flex-end; justify-content:center; }
+  .perde.acik { display:flex; }
+  .panel { background:#fff; width:100%; max-width:640px; border-radius:14px 14px 0 0; padding:16px; }
+  .panel h2 { margin:0 0 10px; font-size:17px; }
+  .panel textarea { height:90px; font-size:13px; word-break:break-all; }
+  .panel .butonlar { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .panel .butonlar .tam { grid-column:1 / -1; }
+  .bildirim { position:fixed; left:50%; top:20px; transform:translateX(-50%); background:#333; color:#fff; padding:8px 14px; border-radius:8px; font-size:14px; display:none; z-index:20; }
+</style>
+</head>
+<body>
+<div class="ust">
+  <h1>Takviye Seçimi</h1>
+  <input type="search" id="ara" placeholder="Ürün ara..." autocomplete="off">
+  <input type="text" id="kisi" class="kisi" placeholder="Kişi adı (isteğe bağlı) — ör. Ahmet Bey" autocomplete="off">
+  <div class="kategoriler" id="kategoriler"></div>
+</div>
+
+<main id="liste"><div class="bos">Yükleniyor...</div></main>
+
+<div class="alt">
+  <div class="sayi" id="sayi">0 ürün seçildi</div>
+  <button class="btn ikincil" id="temizle">Temizle</button>
+  <button class="btn ana" id="olustur" disabled>Link Oluştur</button>
+</div>
+
+<div class="perde" id="perde">
+  <div class="panel">
+    <h2>Link hazır</h2>
+    <textarea id="linkKutu" readonly></textarea>
+    <div class="butonlar">
+      <button class="btn ana" id="kopyala">Kopyala</button>
+      <button class="btn wa" id="whatsapp">WhatsApp</button>
+      <button class="btn ikincil" id="onizle">Önizle</button>
+      <button class="btn ikincil" id="paylas">Paylaş</button>
+      <button class="btn ikincil tam" id="kapat">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<div class="bildirim" id="bildirim"></div>
+
+<script>
+const KAYIT_ANAHTAR = 'takviyeSecim_v1';
+let urunler = [];
+let secim = new Map();        // id -> { adet, not }  (ekleme sırası korunur)
+let aktifKategori = 'Tümü';
+
+const $ = id => document.getElementById(id);
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Türkçe karakter duyarsız arama
+function norm(s) {
+  return String(s).toLocaleLowerCase('tr')
+    .replace(/ı/g,'i').replace(/ğ/g,'g').replace(/ü/g,'u')
+    .replace(/ş/g,'s').replace(/ö/g,'o').replace(/ç/g,'c').replace(/i̇/g,'i');
+}
+
+function kaydet() {
+  try {
+    localStorage.setItem(KAYIT_ANAHTAR, JSON.stringify({
+      secim: [...secim.entries()],
+      kisi: $('kisi').value
+    }));
+  } catch (e) {}
+}
+
+function yukleKayit() {
+  try {
+    const k = JSON.parse(localStorage.getItem(KAYIT_ANAHTAR) || 'null');
+    if (!k) return;
+    const gecerli = new Set(urunler.map(u => u.id));
+    secim = new Map((k.secim || []).filter(([id]) => gecerli.has(id)));
+    $('kisi').value = k.kisi || '';
+  } catch (e) {}
+}
+
+function bildir(metin) {
+  const b = $('bildirim');
+  b.textContent = metin;
+  b.style.display = 'block';
+  clearTimeout(bildir.t);
+  bildir.t = setTimeout(() => b.style.display = 'none', 1800);
+}
+
+function kategorileriCiz() {
+  const katlar = ['Tümü', 'Seçilenler', ...new Set(urunler.map(u => u.kategori).filter(Boolean))];
+  $('kategoriler').innerHTML = katlar.map(k =>
+    `<button class="kat ${k === aktifKategori ? 'aktif' : ''}" data-kat="${esc(k)}">${esc(k)}</button>`
+  ).join('');
+}
+
+function listeyiCiz() {
+  const q = norm($('ara').value.trim());
+  const gorunen = urunler.filter(u => {
+    if (aktifKategori === 'Seçilenler' && !secim.has(u.id)) return false;
+    if (aktifKategori !== 'Tümü' && aktifKategori !== 'Seçilenler' && u.kategori !== aktifKategori) return false;
+    if (q && !norm(u.ad + ' ' + (u.kategori || '')).includes(q)) return false;
+    return true;
+  });
+
+  if (!gorunen.length) {
+    $('liste').innerHTML = '<div class="bos">Eşleşen ürün yok.</div>';
+  } else {
+    $('liste').innerHTML = gorunen.map(u => {
+      const s = secim.get(u.id);
+      return `
+      <div class="urun ${s ? 'secili' : ''}" data-id="${esc(u.id)}">
+        <div class="satir" data-islem="sec">
+          <img src="${esc(u.gorsel)}" alt="" loading="lazy">
+          <div class="ad">${esc(u.ad)}<small>${esc(u.kategori || '')}</small></div>
+          <div class="tik">${s ? '✓' : ''}</div>
+        </div>
+        <div class="detay">
+          <div class="adetSat">Adet:
+            <button data-islem="eksi">−</button>
+            <span>${s ? s.adet : 1}</span>
+            <button data-islem="arti">+</button>
+          </div>
+          <textarea data-islem="not" placeholder="Kullanım notu (ör. Günde 1 kapsül, yemekten sonra)">${s ? esc(s.not) : ''}</textarea>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  sayiyiGuncelle();
+}
+
+function sayiyiGuncelle() {
+  const n = secim.size;
+  $('sayi').textContent = n + ' ürün seçildi';
+  $('olustur').disabled = n === 0;
+}
+
+function linkOlustur() {
+  const taban = location.origin + location.pathname.replace(/secim\.html$/, '');
+  const u = [...secim.entries()].map(([id, s]) => id + '~' + s.adet).join(',');
+  let link = taban + '?u=' + u;
+  secim.forEach((s, id) => {
+    const not = (s.not || '').trim();
+    if (not) link += '&n' + id + '=' + encodeURIComponent(not);
+  });
+  const kisi = $('kisi').value.trim();
+  if (kisi) link += '&k=' + encodeURIComponent(kisi);
+  return link;
+}
+
+// --- Olaylar ---
+$('liste').addEventListener('click', e => {
+  const kart = e.target.closest('.urun');
+  if (!kart) return;
+  const id = kart.dataset.id;
+  const islem = e.target.closest('[data-islem]')?.dataset.islem;
+
+  if (islem === 'sec') {
+    if (secim.has(id)) secim.delete(id); else secim.set(id, { adet: 1, not: '' });
+    kaydet();
+    listeyiCiz();
+    if (secim.has(id)) {
+      const ta = document.querySelector(`.urun[data-id="${CSS.escape(id)}"] textarea`);
+      if (ta) ta.focus({ preventScroll: true });
+    }
+  } else if (islem === 'arti' || islem === 'eksi') {
+    const s = secim.get(id);
+    if (!s) return;
+    s.adet = Math.min(99, Math.max(1, s.adet + (islem === 'arti' ? 1 : -1)));
+    kart.querySelector('.adetSat span').textContent = s.adet;
+    kaydet();
+  }
+});
+
+$('liste').addEventListener('input', e => {
+  if (e.target.dataset.islem !== 'not') return;
+  const id = e.target.closest('.urun').dataset.id;
+  const s = secim.get(id);
+  if (s) { s.not = e.target.value; kaydet(); }
+});
+
+$('kategoriler').addEventListener('click', e => {
+  const b = e.target.closest('.kat');
+  if (!b) return;
+  aktifKategori = b.dataset.kat;
+  kategorileriCiz();
+  listeyiCiz();
+});
+
+$('ara').addEventListener('input', listeyiCiz);
+$('kisi').addEventListener('input', kaydet);
+
+$('temizle').addEventListener('click', () => {
+  if (!secim.size && !$('kisi').value) return;
+  if (!confirm('Tüm seçimler ve kişi adı silinsin mi?')) return;
+  secim.clear();
+  $('kisi').value = '';
+  kaydet();
+  listeyiCiz();
+});
+
+$('olustur').addEventListener('click', () => {
+  $('linkKutu').value = linkOlustur();
+  $('perde').classList.add('acik');
+});
+
+$('kapat').addEventListener('click', () => $('perde').classList.remove('acik'));
+$('perde').addEventListener('click', e => { if (e.target.id === 'perde') $('perde').classList.remove('acik'); });
+
+$('kopyala').addEventListener('click', async () => {
+  const link = $('linkKutu').value;
+  try {
+    await navigator.clipboard.writeText(link);
+  } catch (e) {
+    $('linkKutu').select();
+    document.execCommand('copy');
+  }
+  bildir('Link kopyalandı');
+});
+
+$('whatsapp').addEventListener('click', () => {
+  const kisi = $('kisi').value.trim();
+  const metin = (kisi ? 'Merhaba ' + kisi + ', ' : 'Merhaba, ') +
+    'sizin için seçtiğimiz takviyeler:\n' + $('linkKutu').value;
+  window.open('https://wa.me/?text=' + encodeURIComponent(metin), '_blank');
+});
+
+$('onizle').addEventListener('click', () => window.open($('linkKutu').value, '_blank'));
+
+$('paylas').addEventListener('click', async () => {
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Takviye Listesi', url: $('linkKutu').value }); } catch (e) {}
+  } else {
+    bildir('Bu cihaz paylaşımı desteklemiyor, Kopyala kullanın');
+  }
+});
+
+// --- Başlat ---
+(async () => {
+  try {
+    const veri = await fetch('urunler.json', { cache: 'no-cache' }).then(r => r.json());
+    urunler = veri.urunler || [];
+  } catch (e) {
+    $('liste').innerHTML = '<div class="bos">Ürün listesi yüklenemedi.</div>';
+    return;
+  }
+  yukleKayit();
+  kategorileriCiz();
+  listeyiCiz();
+})();
+</script>
+</body>
+</html>

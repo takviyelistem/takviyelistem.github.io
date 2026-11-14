@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!--- Musteri sayfasi: linkteki seçili takviyeleri gösterir ---14/11/2026---21:00 -->
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Size Özel Takviye Listesi</title>
+<style>
+  :root { --ana:#f27a1a; --koyu:#333; --gri:#777; --zemin:#f5f5f5; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--zemin); color:var(--koyu); }
+  header { background:#fff; padding:18px 16px; text-align:center; border-bottom:3px solid var(--ana); }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:6px 0 0; color:var(--gri); font-size:14px; }
+  main { max-width:640px; margin:0 auto; padding:14px; }
+  .kart { display:flex; gap:14px; background:#fff; border-radius:12px; padding:12px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .kart img { width:96px; height:128px; object-fit:contain; border-radius:8px; background:#fafafa; flex-shrink:0; }
+  .bilgi { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .ad { font-weight:600; font-size:15px; line-height:1.3; }
+  .adet { margin-top:6px; font-size:14px; }
+  .adet b { color:var(--ana); }
+  .not { margin-top:6px; font-size:14px; background:#fff6ee; border-left:3px solid var(--ana); padding:6px 8px; border-radius:4px; white-space:pre-wrap; }
+  .btn { margin-top:auto; display:block; text-align:center; background:var(--ana); color:#fff; text-decoration:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; }
+  .btn:active { opacity:.8; }
+  .bos { text-align:center; color:var(--gri); padding:40px 10px; }
+  footer { text-align:center; color:var(--gri); font-size:12px; padding:10px 0 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="baslik">Size Özel Takviye Listesi</h1>
+  <p id="altBaslik">Ürünleri Trendyol'dan güvenle satın alabilirsiniz.</p>
+</header>
+<main id="liste"><div class="bos">Yükleniyor...</div></main>
+<footer>Her ürünün altındaki butona basarak Trendyol'daki ürün sayfasına gidebilirsiniz.</footer>
+
+<script>
+// Link formatı: index.html?u=ID~ADET,ID~ADET&n<ID>=NOT&k=KISI
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function baslat() {
+  const liste = document.getElementById('liste');
+  const p = new URLSearchParams(location.search);
+  const u = (p.get('u') || '').trim();
+  const kisi = (p.get('k') || '').trim();
+
+  if (kisi) {
+    document.getElementById('baslik').textContent = kisi + ' için Takviye Listesi';
+    document.title = kisi + ' için Takviye Listesi';
+  }
+
+  if (!u) {
+    liste.innerHTML = '<div class="bos">Bu linkte seçili ürün bulunamadı.</div>';
+    return;
+  }
+
+  let veri;
+  try {
+    veri = await fetch('urunler.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) {
+    liste.innerHTML = '<div class="bos">Ürün listesi yüklenemedi. Lütfen sayfayı yenileyin.</div>';
+    return;
+  }
+
+  const harita = {};
+  veri.urunler.forEach(x => harita[x.id] = x);
+
+  let html = '';
+  let bulunan = 0;
+  u.split(',').forEach(parca => {
+    const [id, adetStr] = parca.split('~');
+    const urun = harita[id];
+    if (!urun) return;
+    bulunan++;
+    const adet = Math.max(1, parseInt(adetStr, 10) || 1);
+    const not = (p.get('n' + id) || '').trim();
+    html += `
+      <div class="kart">
+        <img src="${esc(urun.gorsel)}" alt="${esc(urun.ad)}" loading="lazy">
+        <div class="bilgi">
+          <div class="ad">${esc(urun.ad)}</div>
+          <div class="adet">Adet: <b>${adet}</b></div>
+          ${not ? `<div class="not">${esc(not)}</div>` : ''}
+          <a class="btn" href="${esc(urun.link)}" target="_blank" rel="noopener">Trendyol'da Satın Al</a>
+        </div>
+      </div>`;
+  });
+
+  liste.innerHTML = bulunan
+    ? html
+    : '<div class="bos">Bu linkteki ürünler artık listede bulunmuyor.</div>';
+}
+baslat();
+</script>
+</body>
+</html>
