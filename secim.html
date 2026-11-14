@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Secim sayfasi: arama/kategori, adet+not, link olustur/kopyala/WhatsApp ---14/11/2026---21:00 -->
+<!--- Secim sayfasi: kisa link (Firestore ?l=KOD), ayni secimde ayni kod tekrar kullanilir ---15/11/2026---01:10 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -82,6 +82,80 @@
 
 <div class="bildirim" id="bildirim"></div>
 
+<script>
+//--- Ortak: Firebase (Firestore REST) ayarlari ve kayit/okuma fonksiyonlari ---15/11/2026---01:10
+// Firestore REST API kullanılıyor (SDK yüklemeye gerek yok).
+// Erişim izinleri Firestore Rules ile kontrol ediliyor: sadece yeni kayıt + kodla okuma.
+
+const FIREBASE = {
+  apiKey: "AIzaSyBYdSCDkH_hQ2qP6otzTY3vql8AB-N48FQ",
+  projectId: "takviyelistem"
+};
+
+const FS_TABAN = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents/listeler`;
+
+// Karışabilecek karakterler (0/O, 1/l/I) çıkarıldı — Rules'taki ^[A-Za-z0-9]{6}$ ile uyumlu
+const KOD_HARFLER = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+function kodUret() {
+  const r = new Uint32Array(6);
+  crypto.getRandomValues(r);
+  let kod = "";
+  for (let i = 0; i < 6; i++) kod += KOD_HARFLER[r[i] % KOD_HARFLER.length];
+  return kod;
+}
+
+// liste: [{ id, adet, not }], kisi: string  ->  kod (string)
+async function listeKaydet(liste, kisi) {
+  const govde = {
+    fields: {
+      u: { arrayValue: { values: liste.map(x => ({
+        mapValue: { fields: {
+          i: { stringValue: String(x.id) },
+          a: { integerValue: String(x.adet) },
+          n: { stringValue: String(x.not || "") }
+        } }
+      })) } },
+      k: { stringValue: String(kisi || "") },
+      t: { timestampValue: new Date().toISOString() }
+    }
+  };
+
+  // Aynı kod zaten varsa (çok düşük ihtimal) kural reddeder -> yeni kodla tekrar dene
+  for (let deneme = 0; deneme < 5; deneme++) {
+    const kod = kodUret();
+    const yanit = await fetch(`${FS_TABAN}?documentId=${kod}&key=${FIREBASE.apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(govde)
+    });
+    if (yanit.ok) return kod;
+    if (yanit.status !== 409 && yanit.status !== 403) {
+      throw new Error("Kayıt hatası: HTTP " + yanit.status);
+    }
+  }
+  throw new Error("Kayıt yapılamadı (Firestore izin/kural reddi)");
+}
+
+// kod -> { liste: [{ id, adet, not }], kisi } | null (bulunamadı)
+async function listeOku(kod) {
+  if (!/^[A-Za-z0-9]{6}$/.test(kod)) return null;
+  const yanit = await fetch(`${FS_TABAN}/${kod}?key=${FIREBASE.apiKey}`);
+  if (yanit.status === 404 || yanit.status === 403) return null;
+  if (!yanit.ok) throw new Error("Okuma hatası: HTTP " + yanit.status);
+  const v = await yanit.json();
+  const f = v.fields || {};
+  const liste = ((f.u && f.u.arrayValue && f.u.arrayValue.values) || []).map(e => {
+    const m = (e.mapValue && e.mapValue.fields) || {};
+    return {
+      id: m.i ? m.i.stringValue : "",
+      adet: m.a ? parseInt(m.a.integerValue, 10) || 1 : 1,
+      not: m.n ? m.n.stringValue : ""
+    };
+  });
+  return { liste, kisi: f.k ? f.k.stringValue : "" };
+}
+</script>
 <script>
 const KAYIT_ANAHTAR = 'takviyeSecim_v1';
 let urunler = [];
@@ -176,17 +250,20 @@ function sayiyiGuncelle() {
   $('olustur').disabled = n === 0;
 }
 
-function linkOlustur() {
-  const taban = location.origin + location.pathname.replace(/secim\.html$/, '');
-  const u = [...secim.entries()].map(([id, s]) => id + '~' + s.adet).join(',');
-  let link = taban + '?u=' + u;
-  secim.forEach((s, id) => {
-    const not = (s.not || '').trim();
-    if (not) link += '&n' + id + '=' + encodeURIComponent(not);
-  });
+// Aynı seçim için tekrar basılırsa yeni kayıt açılmaz, önceki kod kullanılır
+let sonImza = '';
+let sonKod = '';
+
+async function linkOlustur() {
+  const liste = [...secim.entries()].map(([id, s]) => ({ id, adet: s.adet, not: (s.not || '').trim() }));
   const kisi = $('kisi').value.trim();
-  if (kisi) link += '&k=' + encodeURIComponent(kisi);
-  return link;
+  const imza = JSON.stringify([liste, kisi]);
+  if (imza !== sonImza || !sonKod) {
+    sonKod = await listeKaydet(liste, kisi);
+    sonImza = imza;
+  }
+  const taban = location.origin + location.pathname.replace(/secim\.html$/, '');
+  return taban + '?l=' + sonKod;
 }
 
 // --- Olaylar ---
@@ -240,9 +317,19 @@ $('temizle').addEventListener('click', () => {
   listeyiCiz();
 });
 
-$('olustur').addEventListener('click', () => {
-  $('linkKutu').value = linkOlustur();
-  $('perde').classList.add('acik');
+$('olustur').addEventListener('click', async () => {
+  const btn = $('olustur');
+  btn.disabled = true;
+  btn.textContent = 'Oluşturuluyor...';
+  try {
+    $('linkKutu').value = await linkOlustur();
+    $('perde').classList.add('acik');
+  } catch (e) {
+    alert('Link oluşturulamadı. İnternet bağlantısını kontrol edip tekrar deneyin.\n\n' + e.message);
+  } finally {
+    btn.textContent = 'Link Oluştur';
+    sayiyiGuncelle();
+  }
 });
 
 $('kapat').addEventListener('click', () => $('perde').classList.remove('acik'));

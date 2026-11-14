@@ -1,10 +1,24 @@
 <!DOCTYPE html>
-<!--- Musteri sayfasi: linkteki seçili takviyeleri gösterir ---14/11/2026---21:00 -->
+<!--- Musteri sayfasi: kisa link (?l=KOD, Firestore) + eski uzun link (?u=) + WhatsApp karti ---15/11/2026---01:10 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Size Özel Takviye Listesi</title>
+
+<!-- WhatsApp / sosyal medya önizleme kartı -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="tr_TR">
+<meta property="og:site_name" content="Takviye Listem">
+<meta property="og:title" content="Size Özel Takviye Listesi">
+<meta property="og:description" content="Sizin için seçilen takviyeleri görüntülemek için dokunun.">
+<meta property="og:url" content="https://takviyelistem.github.io/">
+<meta property="og:image" content="https://takviyelistem.github.io/kart.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="description" content="Sizin için seçilen takviyeleri görüntülemek için dokunun.">
+
 <style>
   :root { --ana:#f27a1a; --koyu:#333; --gri:#777; --zemin:#f5f5f5; }
   * { box-sizing:border-box; }
@@ -35,32 +49,130 @@
 <footer>Her ürünün altındaki butona basarak Trendyol'daki ürün sayfasına gidebilirsiniz.</footer>
 
 <script>
-// Link formatı: index.html?u=ID~ADET,ID~ADET&n<ID>=NOT&k=KISI
+//--- Ortak: Firebase (Firestore REST) ayarlari ve kayit/okuma fonksiyonlari ---15/11/2026---01:10
+// Firestore REST API kullanılıyor (SDK yüklemeye gerek yok).
+// Erişim izinleri Firestore Rules ile kontrol ediliyor: sadece yeni kayıt + kodla okuma.
+
+const FIREBASE = {
+  apiKey: "AIzaSyBYdSCDkH_hQ2qP6otzTY3vql8AB-N48FQ",
+  projectId: "takviyelistem"
+};
+
+const FS_TABAN = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents/listeler`;
+
+// Karışabilecek karakterler (0/O, 1/l/I) çıkarıldı — Rules'taki ^[A-Za-z0-9]{6}$ ile uyumlu
+const KOD_HARFLER = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+function kodUret() {
+  const r = new Uint32Array(6);
+  crypto.getRandomValues(r);
+  let kod = "";
+  for (let i = 0; i < 6; i++) kod += KOD_HARFLER[r[i] % KOD_HARFLER.length];
+  return kod;
+}
+
+// liste: [{ id, adet, not }], kisi: string  ->  kod (string)
+async function listeKaydet(liste, kisi) {
+  const govde = {
+    fields: {
+      u: { arrayValue: { values: liste.map(x => ({
+        mapValue: { fields: {
+          i: { stringValue: String(x.id) },
+          a: { integerValue: String(x.adet) },
+          n: { stringValue: String(x.not || "") }
+        } }
+      })) } },
+      k: { stringValue: String(kisi || "") },
+      t: { timestampValue: new Date().toISOString() }
+    }
+  };
+
+  // Aynı kod zaten varsa (çok düşük ihtimal) kural reddeder -> yeni kodla tekrar dene
+  for (let deneme = 0; deneme < 5; deneme++) {
+    const kod = kodUret();
+    const yanit = await fetch(`${FS_TABAN}?documentId=${kod}&key=${FIREBASE.apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(govde)
+    });
+    if (yanit.ok) return kod;
+    if (yanit.status !== 409 && yanit.status !== 403) {
+      throw new Error("Kayıt hatası: HTTP " + yanit.status);
+    }
+  }
+  throw new Error("Kayıt yapılamadı (Firestore izin/kural reddi)");
+}
+
+// kod -> { liste: [{ id, adet, not }], kisi } | null (bulunamadı)
+async function listeOku(kod) {
+  if (!/^[A-Za-z0-9]{6}$/.test(kod)) return null;
+  const yanit = await fetch(`${FS_TABAN}/${kod}?key=${FIREBASE.apiKey}`);
+  if (yanit.status === 404 || yanit.status === 403) return null;
+  if (!yanit.ok) throw new Error("Okuma hatası: HTTP " + yanit.status);
+  const v = await yanit.json();
+  const f = v.fields || {};
+  const liste = ((f.u && f.u.arrayValue && f.u.arrayValue.values) || []).map(e => {
+    const m = (e.mapValue && e.mapValue.fields) || {};
+    return {
+      id: m.i ? m.i.stringValue : "",
+      adet: m.a ? parseInt(m.a.integerValue, 10) || 1 : 1,
+      not: m.n ? m.n.stringValue : ""
+    };
+  });
+  return { liste, kisi: f.k ? f.k.stringValue : "" };
+}
+</script>
+<script>
+// Link formatları:
+//   Yeni (kısa):  ?l=KOD            -> Firestore'dan okunur
+//   Eski (uzun):  ?u=ID~ADET,...&n<ID>=NOT&k=KISI  -> geriye dönük uyumluluk
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-async function baslat() {
-  const liste = document.getElementById('liste');
-  const p = new URLSearchParams(location.search);
+function uzunLinkiCoz(p) {
   const u = (p.get('u') || '').trim();
-  const kisi = (p.get('k') || '').trim();
+  const liste = u.split(',').filter(Boolean).map(parca => {
+    const [id, adetStr] = parca.split('~');
+    return { id, adet: parseInt(adetStr, 10) || 1, not: (p.get('n' + id) || '').trim() };
+  });
+  return { liste, kisi: (p.get('k') || '').trim() };
+}
 
-  if (kisi) {
-    document.getElementById('baslik').textContent = kisi + ' için Takviye Listesi';
-    document.title = kisi + ' için Takviye Listesi';
+async function baslat() {
+  const alan = document.getElementById('liste');
+  const p = new URLSearchParams(location.search);
+  const kod = (p.get('l') || '').trim();
+
+  let secim;
+  try {
+    if (kod) {
+      secim = await listeOku(kod);
+      if (!secim) {
+        alan.innerHTML = '<div class="bos">Bu liste bulunamadı. Linki kontrol edin.</div>';
+        return;
+      }
+    } else if (p.get('u')) {
+      secim = uzunLinkiCoz(p);
+    } else {
+      alan.innerHTML = '<div class="bos">Bu linkte seçili ürün bulunamadı.</div>';
+      return;
+    }
+  } catch (e) {
+    alan.innerHTML = '<div class="bos">Liste yüklenemedi. İnternet bağlantınızı kontrol edip sayfayı yenileyin.</div>';
+    return;
   }
 
-  if (!u) {
-    liste.innerHTML = '<div class="bos">Bu linkte seçili ürün bulunamadı.</div>';
-    return;
+  if (secim.kisi) {
+    document.getElementById('baslik').textContent = secim.kisi + ' için Takviye Listesi';
+    document.title = secim.kisi + ' için Takviye Listesi';
   }
 
   let veri;
   try {
     veri = await fetch('urunler.json', { cache: 'no-cache' }).then(r => r.json());
   } catch (e) {
-    liste.innerHTML = '<div class="bos">Ürün listesi yüklenemedi. Lütfen sayfayı yenileyin.</div>';
+    alan.innerHTML = '<div class="bos">Ürün listesi yüklenemedi. Lütfen sayfayı yenileyin.</div>';
     return;
   }
 
@@ -68,14 +180,11 @@ async function baslat() {
   veri.urunler.forEach(x => harita[x.id] = x);
 
   let html = '';
-  let bulunan = 0;
-  u.split(',').forEach(parca => {
-    const [id, adetStr] = parca.split('~');
-    const urun = harita[id];
+  secim.liste.forEach(s => {
+    const urun = harita[s.id];
     if (!urun) return;
-    bulunan++;
-    const adet = Math.max(1, parseInt(adetStr, 10) || 1);
-    const not = (p.get('n' + id) || '').trim();
+    const adet = Math.max(1, s.adet || 1);
+    const not = (s.not || '').trim();
     html += `
       <div class="kart">
         <img src="${esc(urun.gorsel)}" alt="${esc(urun.ad)}" loading="lazy">
@@ -88,9 +197,7 @@ async function baslat() {
       </div>`;
   });
 
-  liste.innerHTML = bulunan
-    ? html
-    : '<div class="bos">Bu linkteki ürünler artık listede bulunmuyor.</div>';
+  alan.innerHTML = html || '<div class="bos">Bu linkteki ürünler artık listede bulunmuyor.</div>';
 }
 baslat();
 </script>
