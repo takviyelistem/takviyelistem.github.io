@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Musteri sayfasi: Kullanim satiri (Gunde X + Ac/Tok karnina + Sabah/Aksam) eklendi ---15/11/2026---01:40 -->
+<!--- Musteri sayfasi: acilma sayaci (ayni cihaz 1 kez, &p=1 onizlemede sayilmaz) ---15/11/2026---09:00 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -51,7 +51,7 @@
 <footer>Her ürünün altındaki butona basarak Trendyol'daki ürün sayfasına gidebilirsiniz.</footer>
 
 <script>
-//--- Ortak: Firebase (Firestore REST) kayit/okuma + gunde (g) ve zaman (z) alanlari ---15/11/2026---01:40
+//--- Ortak: Firebase (Firestore REST) kayit/okuma; kayit icin giris token (Authorization) ---15/11/2026---09:45
 // Firestore REST API kullanılıyor (SDK yüklemeye gerek yok).
 // Erişim izinleri Firestore Rules ile kontrol ediliyor: sadece yeni kayıt + kodla okuma.
 
@@ -73,8 +73,9 @@ function kodUret() {
   return kod;
 }
 
-// liste: [{ id, adet, gunde, zaman:["Aç","Sabah",...], not }], kisi: string  ->  kod (string)
-async function listeKaydet(liste, kisi) {
+// liste: [{ id, adet, gunde, zaman:["Aç","Sabah",...], not }], kisi, hazirlayan: string,
+// token: giriş yapan kullanıcının Firebase kimlik jetonu  ->  kod (string)
+async function listeKaydet(liste, kisi, hazirlayan, token) {
   const govde = {
     fields: {
       u: { arrayValue: { values: liste.map(x => ({
@@ -87,24 +88,31 @@ async function listeKaydet(liste, kisi) {
         } }
       })) } },
       k: { stringValue: String(kisi || "") },
+      h: { stringValue: String(hazirlayan || "") },
+      o: { integerValue: "0" },
       t: { timestampValue: new Date().toISOString() }
     }
   };
 
-  // Aynı kod zaten varsa (çok düşük ihtimal) kural reddeder -> yeni kodla tekrar dene
+  const basliklar = { "Content-Type": "application/json" };
+  if (token) basliklar["Authorization"] = "Bearer " + token;
+
+  // Aynı kod zaten varsa (çok düşük ihtimal) 409 döner -> yeni kodla tekrar dene
   for (let deneme = 0; deneme < 5; deneme++) {
     const kod = kodUret();
     const yanit = await fetch(`${FS_TABAN}?documentId=${kod}&key=${FIREBASE.apiKey}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: basliklar,
       body: JSON.stringify(govde)
     });
     if (yanit.ok) return kod;
-    if (yanit.status !== 409 && yanit.status !== 403) {
-      throw new Error("Kayıt hatası: HTTP " + yanit.status);
+    if (yanit.status === 409) continue;
+    if (yanit.status === 403 || yanit.status === 401) {
+      throw new Error("Yetki reddedildi. Çıkış yapıp tekrar giriş yapın.");
     }
+    throw new Error("Kayıt hatası: HTTP " + yanit.status);
   }
-  throw new Error("Kayıt yapılamadı (Firestore izin/kural reddi)");
+  throw new Error("Kayıt yapılamadı (kod üretilemedi)");
 }
 
 // kod -> { liste: [{ id, adet, not }], kisi } | null (bulunamadı)
@@ -126,6 +134,19 @@ async function listeOku(kod) {
     };
   });
   return { liste, kisi: f.k ? f.k.stringValue : "" };
+}
+
+// Müşteri linki açınca sayacı +1 artırır (Rules: sadece "o" alanı, sadece +1)
+async function listeAcildi(kod) {
+  const belge = `projects/${FIREBASE.projectId}/databases/(default)/documents/listeler/${kod}`;
+  await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents:commit?key=${FIREBASE.apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ writes: [{
+      transform: { document: belge, fieldTransforms: [{ fieldPath: "o", increment: { integerValue: "1" } }] },
+      currentDocument: { exists: true }
+    }] })
+  });
 }
 </script>
 <script>
@@ -157,6 +178,16 @@ async function baslat() {
       if (!secim) {
         alan.innerHTML = '<div class="bos">Bu liste bulunamadı. Linki kontrol edin.</div>';
         return;
+      }
+      // Açılma sayacı: önizleme (&p=1) sayılmaz, aynı cihazdan tekrar açılış sayılmaz
+      if (p.get('p') !== '1') {
+        let sayildi = false;
+        try { sayildi = localStorage.getItem('acildi_' + kod) === '1'; } catch (e) {}
+        if (!sayildi) {
+          listeAcildi(kod).then(() => {
+            try { localStorage.setItem('acildi_' + kod, '1'); } catch (e) {}
+          }).catch(() => {});
+        }
       }
     } else if (p.get('u')) {
       secim = uzunLinkiCoz(p);

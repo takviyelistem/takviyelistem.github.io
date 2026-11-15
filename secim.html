@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Secim sayfasi: link olusturulan secim bir dahaki acilista gelmez + Yeni Liste butonu ---15/11/2026---01:50 -->
+<!--- Secim sayfasi: e-posta/sifre girisi (sadece Admin ve Omer), hazirlayan girişten otomatik ---15/11/2026---09:45 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -14,6 +14,18 @@
   .ust h1 { margin:0 0 8px; font-size:17px; }
   input[type=search], input[type=text], textarea { width:100%; font-size:16px; padding:9px 10px; border:1px solid var(--cizgi); border-radius:8px; font-family:inherit; }
   .kisi { margin-top:8px; }
+  .ust .baslik { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .ust .baslik h1 { margin:0; flex:1; }
+  .ust .kullanici { font-size:13px; color:var(--gri); }
+  .ust .cikis { border:1px solid var(--cizgi); background:#fff; border-radius:8px; padding:5px 10px; font-size:13px; cursor:pointer; }
+  .girisPerde { position:fixed; inset:0; background:var(--zemin); z-index:30; display:flex; align-items:center; justify-content:center; padding:16px; }
+  .girisPerde[hidden] { display:none; }
+  .girisKutu { background:#fff; border-radius:14px; padding:22px; width:100%; max-width:380px; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  .girisKutu h2 { margin:0 0 4px; font-size:19px; }
+  .girisKutu p { margin:0 0 14px; color:var(--gri); font-size:14px; }
+  .girisKutu input { margin-bottom:10px; }
+  .girisKutu .btn { width:100%; }
+  .girisHata { color:#d93025; font-size:14px; min-height:20px; margin-top:8px; }
   .kategoriler { display:flex; gap:6px; overflow-x:auto; margin-top:8px; padding-bottom:2px; }
   .kat { flex-shrink:0; border:1px solid var(--cizgi); background:#fff; border-radius:16px; padding:5px 12px; font-size:13px; cursor:pointer; }
   .kat.aktif { background:var(--ana); color:#fff; border-color:var(--ana); }
@@ -56,7 +68,11 @@
 </head>
 <body>
 <div class="ust">
-  <h1>Takviye Seçimi</h1>
+  <div class="baslik">
+    <h1>Takviye Seçimi</h1>
+    <span class="kullanici" id="kullaniciAdi"></span>
+    <button class="cikis" id="cikisBtn" hidden>Çıkış</button>
+  </div>
   <input type="search" id="ara" placeholder="Ürün ara..." autocomplete="off">
   <input type="text" id="kisi" class="kisi" placeholder="Kişi adı (isteğe bağlı) — ör. Ahmet Bey" autocomplete="off">
   <div class="kategoriler" id="kategoriler"></div>
@@ -87,8 +103,19 @@
 
 <div class="bildirim" id="bildirim"></div>
 
+<div class="girisPerde" id="girisPerde">
+  <form class="girisKutu" id="girisForm">
+    <h2>Giriş</h2>
+    <p>Takviye listesi hazırlamak için giriş yapın.</p>
+    <input type="email" id="girisEposta" placeholder="E-posta" autocomplete="username" required>
+    <input type="password" id="girisSifre" placeholder="Şifre" autocomplete="current-password" required>
+    <button class="btn ana" type="submit" id="girisBtn">Giriş Yap</button>
+    <div class="girisHata" id="girisHata"></div>
+  </form>
+</div>
+
 <script>
-//--- Ortak: Firebase (Firestore REST) kayit/okuma + gunde (g) ve zaman (z) alanlari ---15/11/2026---01:40
+//--- Ortak: Firebase (Firestore REST) kayit/okuma; kayit icin giris token (Authorization) ---15/11/2026---09:45
 // Firestore REST API kullanılıyor (SDK yüklemeye gerek yok).
 // Erişim izinleri Firestore Rules ile kontrol ediliyor: sadece yeni kayıt + kodla okuma.
 
@@ -110,8 +137,9 @@ function kodUret() {
   return kod;
 }
 
-// liste: [{ id, adet, gunde, zaman:["Aç","Sabah",...], not }], kisi: string  ->  kod (string)
-async function listeKaydet(liste, kisi) {
+// liste: [{ id, adet, gunde, zaman:["Aç","Sabah",...], not }], kisi, hazirlayan: string,
+// token: giriş yapan kullanıcının Firebase kimlik jetonu  ->  kod (string)
+async function listeKaydet(liste, kisi, hazirlayan, token) {
   const govde = {
     fields: {
       u: { arrayValue: { values: liste.map(x => ({
@@ -124,24 +152,31 @@ async function listeKaydet(liste, kisi) {
         } }
       })) } },
       k: { stringValue: String(kisi || "") },
+      h: { stringValue: String(hazirlayan || "") },
+      o: { integerValue: "0" },
       t: { timestampValue: new Date().toISOString() }
     }
   };
 
-  // Aynı kod zaten varsa (çok düşük ihtimal) kural reddeder -> yeni kodla tekrar dene
+  const basliklar = { "Content-Type": "application/json" };
+  if (token) basliklar["Authorization"] = "Bearer " + token;
+
+  // Aynı kod zaten varsa (çok düşük ihtimal) 409 döner -> yeni kodla tekrar dene
   for (let deneme = 0; deneme < 5; deneme++) {
     const kod = kodUret();
     const yanit = await fetch(`${FS_TABAN}?documentId=${kod}&key=${FIREBASE.apiKey}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: basliklar,
       body: JSON.stringify(govde)
     });
     if (yanit.ok) return kod;
-    if (yanit.status !== 409 && yanit.status !== 403) {
-      throw new Error("Kayıt hatası: HTTP " + yanit.status);
+    if (yanit.status === 409) continue;
+    if (yanit.status === 403 || yanit.status === 401) {
+      throw new Error("Yetki reddedildi. Çıkış yapıp tekrar giriş yapın.");
     }
+    throw new Error("Kayıt hatası: HTTP " + yanit.status);
   }
-  throw new Error("Kayıt yapılamadı (Firestore izin/kural reddi)");
+  throw new Error("Kayıt yapılamadı (kod üretilemedi)");
 }
 
 // kod -> { liste: [{ id, adet, not }], kisi } | null (bulunamadı)
@@ -164,10 +199,25 @@ async function listeOku(kod) {
   });
   return { liste, kisi: f.k ? f.k.stringValue : "" };
 }
+
+// Müşteri linki açınca sayacı +1 artırır (Rules: sadece "o" alanı, sadece +1)
+async function listeAcildi(kod) {
+  const belge = `projects/${FIREBASE.projectId}/databases/(default)/documents/listeler/${kod}`;
+  await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents:commit?key=${FIREBASE.apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ writes: [{
+      transform: { document: belge, fieldTransforms: [{ fieldPath: "o", increment: { integerValue: "1" } }] },
+      currentDocument: { exists: true }
+    }] })
+  });
+}
 </script>
 <script>
 const KAYIT_ANAHTAR = 'takviyeSecim_v1';
 const ZAMANLAR = ['Aç', 'Tok', 'Sabah', 'Akşam'];
+// Giriş yapan kullanıcı (aşağıdaki module script doldurur): { kullanici, ad }
+window.oturum = null;
 let urunler = [];
 let secim = new Map();        // id -> { adet, not }  (ekleme sırası korunur)
 let aktifKategori = 'Tümü';
@@ -301,9 +351,12 @@ async function linkOlustur() {
     not: (s.not || '').trim()
   }));
   const kisi = $('kisi').value.trim();
-  const imza = JSON.stringify([liste, kisi]);
+  if (!window.oturum) throw new Error("Oturum yok. Lütfen giriş yapın.");
+  const hazirlayan = window.oturum.ad;
+  const imza = JSON.stringify([liste, kisi, hazirlayan]);
   if (imza !== sonImza || !sonKod) {
-    sonKod = await listeKaydet(liste, kisi);
+    const token = await window.oturum.kullanici.getIdToken();
+    sonKod = await listeKaydet(liste, kisi, hazirlayan, token);
     sonImza = imza;
   }
   kaydet(true);
@@ -367,6 +420,7 @@ $('kategoriler').addEventListener('click', e => {
 $('ara').addEventListener('input', listeyiCiz);
 $('kisi').addEventListener('input', () => kaydet());
 
+
 $('temizle').addEventListener('click', () => {
   if (!secim.size && !$('kisi').value) return;
   if (!confirm('Tüm seçimler ve kişi adı silinsin mi?')) return;
@@ -413,7 +467,8 @@ $('whatsapp').addEventListener('click', () => {
   window.open('https://wa.me/?text=' + encodeURIComponent(metin), '_blank');
 });
 
-$('onizle').addEventListener('click', () => window.open($('linkKutu').value, '_blank'));
+// Önizleme açılma sayacına yansımasın diye &p=1 eklenir
+$('onizle').addEventListener('click', () => window.open($('linkKutu').value + '&p=1', '_blank'));
 
 $('paylas').addEventListener('click', async () => {
   if (navigator.share) {
@@ -436,6 +491,67 @@ $('paylas').addEventListener('click', async () => {
   kategorileriCiz();
   listeyiCiz();
 })();
+</script>
+<script type="module">
+//--- Giris: Firebase Auth (e-posta/sifre), oturum cihazda kalir ---15/11/2026---09:45
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+// Yetkili kullanıcılar (UID -> hazırlayan adı). Asıl yetki kontrolü Firestore Rules'ta.
+const KULLANICILAR = {
+  "EMj9VSjSZ0hY7v9AGnezZqa7J5A2": "Admin",
+  "73983cBzyTf4VCoESO2YeiL6Wln1": "Ömer M."
+};
+
+const app = initializeApp({
+  apiKey: "AIzaSyBYdSCDkH_hQ2qP6otzTY3vql8AB-N48FQ",
+  authDomain: "takviyelistem.firebaseapp.com",
+  projectId: "takviyelistem",
+  appId: "1:600064262169:web:6c52999276afbccfd9aa88"
+});
+const auth = getAuth(app);
+const el = id => document.getElementById(id);
+
+try { el('girisEposta').value = localStorage.getItem('takviyeSonEposta') || ''; } catch (e) {}
+
+el('girisForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  el('girisHata').textContent = '';
+  el('girisBtn').disabled = true;
+  const eposta = el('girisEposta').value.trim();
+  try {
+    await signInWithEmailAndPassword(auth, eposta, el('girisSifre').value);
+    try { localStorage.setItem('takviyeSonEposta', eposta); } catch (e) {}
+    el('girisSifre').value = '';
+  } catch (err) {
+    const k = err.code || '';
+    el('girisHata').textContent =
+      (k.includes('invalid-credential') || k.includes('wrong-password') || k.includes('user-not-found') || k.includes('invalid-email'))
+        ? 'E-posta veya şifre hatalı.'
+        : k.includes('too-many-requests') ? 'Çok fazla deneme. Biraz bekleyip tekrar deneyin.'
+        : k.includes('network') ? 'İnternet bağlantısı yok.'
+        : 'Giriş yapılamadı: ' + k;
+  } finally {
+    el('girisBtn').disabled = false;
+  }
+});
+
+el('cikisBtn').addEventListener('click', () => {
+  if (confirm('Çıkış yapılsın mı?')) signOut(auth);
+});
+
+onAuthStateChanged(auth, async kullanici => {
+  if (kullanici && !KULLANICILAR[kullanici.uid]) {
+    el('girisHata').textContent = 'Bu hesabın liste hazırlama yetkisi yok.';
+    await signOut(auth);
+    return;
+  }
+  window.oturum = kullanici ? { kullanici, ad: KULLANICILAR[kullanici.uid] } : null;
+  el('girisPerde').hidden = !!kullanici;
+  el('cikisBtn').hidden = !kullanici;
+  el('kullaniciAdi').textContent = kullanici ? KULLANICILAR[kullanici.uid] : '';
+});
 </script>
 </body>
 </html>

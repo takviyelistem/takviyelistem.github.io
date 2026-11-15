@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<!--- Rapor sayfasi: e-posta/sifre girisi (sadece Admin UID), donem/hazirlayan filtresi, ozet, CSV ---15/11/2026---09:45 -->
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Takviye Listem — Rapor</title>
+<style>
+  :root { --ana:#f27a1a; --koyu:#333; --gri:#777; --zemin:#f5f5f5; --cizgi:#e3e3e3; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--zemin); color:var(--koyu); }
+  .ust { background:#fff; border-bottom:3px solid var(--ana); padding:12px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ust h1 { margin:0; font-size:18px; flex:1; }
+  .ust .kim { font-size:13px; color:var(--gri); }
+  main { max-width:1000px; margin:0 auto; padding:14px; }
+  .btn { border:0; border-radius:8px; padding:9px 14px; font-size:14px; font-weight:600; cursor:pointer; }
+  .btn.ana { background:var(--ana); color:#fff; }
+  .btn.ikincil { background:#eee; color:var(--koyu); }
+  .filtre { background:#fff; border-radius:12px; padding:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px; }
+  .filtre label { font-size:12px; color:var(--gri); display:flex; flex-direction:column; gap:4px; }
+  .filtre select, .filtre input { font-size:15px; padding:7px 8px; border:1px solid var(--cizgi); border-radius:8px; font-family:inherit; background:#fff; }
+  .ozel { display:none; gap:10px; }
+  .ozel.acik { display:flex; }
+  .kutular { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:14px; }
+  .kutu { background:#fff; border-radius:12px; padding:12px; }
+  .kutu .d { font-size:26px; font-weight:700; color:var(--ana); }
+  .kutu .e { font-size:13px; color:var(--gri); margin-top:2px; }
+  .bolum { background:#fff; border-radius:12px; padding:12px; margin-bottom:14px; overflow-x:auto; }
+  .bolum h2 { margin:0 0 10px; font-size:16px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--cizgi); vertical-align:top; }
+  th { color:var(--gri); font-weight:600; font-size:12px; white-space:nowrap; }
+  td.s { text-align:right; white-space:nowrap; }
+  .cubuk { height:10px; background:var(--ana); border-radius:5px; min-width:2px; }
+  .urunler div { margin-bottom:2px; }
+  a { color:var(--ana); }
+  .giris { max-width:420px; margin:60px auto; background:#fff; border-radius:12px; padding:24px; text-align:center; }
+  .giris p { color:var(--gri); }
+  .giris input { width:100%; font-size:16px; padding:9px 10px; border:1px solid var(--cizgi); border-radius:8px; margin-bottom:10px; font-family:inherit; }
+  .giris .btn { width:100%; }
+  .mesaj { text-align:center; color:var(--gri); padding:30px 10px; }
+  .hata { color:#d93025; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div class="ust">
+  <h1>Takviye Listem — Rapor</h1>
+  <span class="kim" id="kim"></span>
+  <button class="btn ikincil" id="cikis" hidden>Çıkış</button>
+</div>
+
+<form class="giris" id="girisEkrani">
+  <h2>Yönetici Girişi</h2>
+  <p>Raporları görmek için yönetici hesabıyla giriş yapın.</p>
+  <input type="email" id="girisEposta" placeholder="E-posta" autocomplete="username" required>
+  <input type="password" id="girisSifre" placeholder="Şifre" autocomplete="current-password" required>
+  <button class="btn ana" type="submit" id="girisBtn">Giriş Yap</button>
+  <p class="hata" id="girisHata"></p>
+</form>
+
+<main id="raporEkrani" hidden>
+  <div class="filtre">
+    <label>Dönem
+      <select id="donem">
+        <option value="buAy">Bu ay</option>
+        <option value="gecenAy">Geçen ay</option>
+        <option value="buYil">Bu yıl</option>
+        <option value="gecenYil">Geçen yıl</option>
+        <option value="tumu">Tüm zamanlar</option>
+        <option value="ozel">Özel aralık</option>
+      </select>
+    </label>
+    <div class="ozel" id="ozelAralik">
+      <label>Başlangıç <input type="date" id="bas"></label>
+      <label>Bitiş <input type="date" id="bit"></label>
+    </div>
+    <label>Hazırlayan
+      <select id="hazirlayanFiltre"><option value="">Hepsi</option></select>
+    </label>
+    <button class="btn ana" id="getir">Getir</button>
+    <button class="btn ikincil" id="csv" disabled>CSV İndir</button>
+  </div>
+
+  <div id="sonuc"><div class="mesaj">Dönemi seçip "Getir"e basın.</div></div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBYdSCDkH_hQ2qP6otzTY3vql8AB-N48FQ",
+  authDomain: "takviyelistem.firebaseapp.com",
+  projectId: "takviyelistem",
+  storageBucket: "takviyelistem.firebasestorage.app",
+  messagingSenderId: "600064262169",
+  appId: "1:600064262169:web:6c52999276afbccfd9aa88"
+};
+// Rapor yetkisi sadece Admin'de. Asıl kontrol Firestore Rules'ta (UID ile).
+const YONETICI_UID = "EMj9VSjSZ0hY7v9AGnezZqa7J5A2";
+const HAZIRLAYANLAR = ['Admin', 'Ömer M.'];
+const DB_TABAN = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
+const MUSTERI_TABAN = location.origin + location.pathname.replace(/rapor\.html$/, '');
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const $ = id => document.getElementById(id);
+
+let urunHarita = {};
+let sonKayitlar = [];
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+const tarihYaz = d => d.toLocaleString('tr-TR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+const AY_ADLARI = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+// ---------- Giriş ----------
+$('girisEkrani').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('girisHata').textContent = '';
+  $('girisBtn').disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, $('girisEposta').value.trim(), $('girisSifre').value);
+    $('girisSifre').value = '';
+  } catch (err) {
+    const k = err.code || '';
+    $('girisHata').textContent =
+      (k.includes('invalid-credential') || k.includes('wrong-password') || k.includes('user-not-found') || k.includes('invalid-email'))
+        ? 'E-posta veya şifre hatalı.'
+        : k.includes('too-many-requests') ? 'Çok fazla deneme. Biraz bekleyip tekrar deneyin.'
+        : 'Giriş yapılamadı: ' + k;
+  } finally {
+    $('girisBtn').disabled = false;
+  }
+});
+
+$('cikis').addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, async kullanici => {
+  if (!kullanici) {
+    $('girisEkrani').hidden = false;
+    $('raporEkrani').hidden = true;
+    $('cikis').hidden = true;
+    $('kim').textContent = '';
+    return;
+  }
+  if (kullanici.uid !== YONETICI_UID) {
+    const eposta = kullanici.email;
+    await signOut(auth);
+    $('girisHata').textContent = eposta + ' hesabının rapor yetkisi yok.';
+    return;
+  }
+  $('kim').textContent = kullanici.email;
+  $('cikis').hidden = false;
+  $('girisEkrani').hidden = true;
+  $('raporEkrani').hidden = false;
+  if (!Object.keys(urunHarita).length) await urunleriYukle();
+  getir();
+});
+
+async function urunleriYukle() {
+  try {
+    const veri = await fetch('urunler.json', { cache: 'no-cache' }).then(r => r.json());
+    veri.urunler.forEach(u => urunHarita[u.id] = u);
+  } catch (e) {}
+}
+
+// ---------- Filtre ----------
+$('hazirlayanFiltre').innerHTML = '<option value="">Hepsi</option>' +
+  HAZIRLAYANLAR.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('') +
+  '<option value="-">(Belirtilmemiş)</option>';
+
+$('donem').addEventListener('change', () => $('ozelAralik').classList.toggle('acik', $('donem').value === 'ozel'));
+$('getir').addEventListener('click', getir);
+$('hazirlayanFiltre').addEventListener('change', () => sonKayitlar.length && ciz());
+
+function aralikHesapla() {
+  const simdi = new Date();
+  const y = simdi.getFullYear(), m = simdi.getMonth();
+  switch ($('donem').value) {
+    case 'buAy':     return [new Date(y, m, 1), new Date(y, m + 1, 1)];
+    case 'gecenAy':  return [new Date(y, m - 1, 1), new Date(y, m, 1)];
+    case 'buYil':    return [new Date(y, 0, 1), new Date(y + 1, 0, 1)];
+    case 'gecenYil': return [new Date(y - 1, 0, 1), new Date(y, 0, 1)];
+    case 'ozel': {
+      const b = $('bas').value, s = $('bit').value;
+      const bas = b ? new Date(b + 'T00:00:00') : null;
+      const bit = s ? new Date(s + 'T00:00:00') : null;
+      if (bit) bit.setDate(bit.getDate() + 1);   // bitiş günü dahil
+      return [bas, bit];
+    }
+    default: return [null, null];
+  }
+}
+
+// ---------- Veri çekme (Firestore REST runQuery, kimlik doğrulamalı) ----------
+async function getir() {
+  const [bas, bit] = aralikHesapla();
+  $('sonuc').innerHTML = '<div class="mesaj">Yükleniyor...</div>';
+  $('csv').disabled = true;
+
+  const filtreler = [];
+  if (bas) filtreler.push({ fieldFilter: { field: { fieldPath: 't' }, op: 'GREATER_THAN_OR_EQUAL', value: { timestampValue: bas.toISOString() } } });
+  if (bit) filtreler.push({ fieldFilter: { field: { fieldPath: 't' }, op: 'LESS_THAN', value: { timestampValue: bit.toISOString() } } });
+  const sorgu = { structuredQuery: { from: [{ collectionId: 'listeler' }], orderBy: [{ field: { fieldPath: 't' }, direction: 'DESCENDING' }] } };
+  if (filtreler.length === 1) sorgu.structuredQuery.where = filtreler[0];
+  if (filtreler.length === 2) sorgu.structuredQuery.where = { compositeFilter: { op: 'AND', filters: filtreler } };
+
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const yanit = await fetch(`${DB_TABAN}:runQuery?key=${firebaseConfig.apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(sorgu)
+    });
+    if (yanit.status === 403) {
+      const eposta = auth.currentUser.email;
+      await signOut(auth);
+      $('girisHata').textContent = eposta + ' hesabının rapor yetkisi yok.';
+      return;
+    }
+    if (!yanit.ok) throw new Error('HTTP ' + yanit.status);
+    const satirlar = await yanit.json();
+    sonKayitlar = satirlar.filter(r => r.document).map(r => belgeCoz(r.document));
+    ciz();
+  } catch (e) {
+    sonKayitlar = [];
+    $('sonuc').innerHTML = `<div class="mesaj hata">Veri alınamadı: ${esc(e.message)}</div>`;
+  }
+}
+
+function belgeCoz(d) {
+  const f = d.fields || {};
+  const kod = d.name.split('/').pop();
+  const u = ((f.u && f.u.arrayValue && f.u.arrayValue.values) || []).map(e => {
+    const m = (e.mapValue && e.mapValue.fields) || {};
+    return {
+      id: m.i ? m.i.stringValue : '',
+      adet: m.a ? parseInt(m.a.integerValue, 10) || 1 : 1,
+      gunde: m.g ? parseInt(m.g.integerValue, 10) || 0 : 0,
+      zaman: m.z && m.z.stringValue ? m.z.stringValue : '',
+      not: m.n ? m.n.stringValue : ''
+    };
+  });
+  return {
+    kod,
+    tarih: new Date(f.t ? f.t.timestampValue : d.createTime),
+    kisi: f.k ? f.k.stringValue : '',
+    hazirlayan: f.h ? f.h.stringValue : '',
+    acilma: f.o ? parseInt(f.o.integerValue, 10) || 0 : 0,
+    urunler: u
+  };
+}
+
+const urunAdi = id => (urunHarita[id] && urunHarita[id].ad) || ('Ürün #' + id);
+
+function filtreliKayitlar() {
+  const h = $('hazirlayanFiltre').value;
+  if (!h) return sonKayitlar;
+  if (h === '-') return sonKayitlar.filter(k => !k.hazirlayan);
+  return sonKayitlar.filter(k => k.hazirlayan === h);
+}
+
+// ---------- Çizim ----------
+function ciz() {
+  const kayitlar = filtreliKayitlar();
+  $('csv').disabled = !kayitlar.length;
+  if (!kayitlar.length) {
+    $('sonuc').innerHTML = '<div class="mesaj">Bu dönemde kayıt yok.</div>';
+    return;
+  }
+
+  const toplam = kayitlar.length;
+  const acilan = kayitlar.filter(k => k.acilma > 0).length;
+  const toplamAcilma = kayitlar.reduce((t, k) => t + k.acilma, 0);
+  const toplamUrun = kayitlar.reduce((t, k) => t + k.urunler.reduce((a, u) => a + u.adet, 0), 0);
+
+  // Hazırlayana göre
+  const hz = {};
+  kayitlar.forEach(k => {
+    const ad = k.hazirlayan || '(Belirtilmemiş)';
+    hz[ad] = hz[ad] || { liste: 0, acilan: 0 };
+    hz[ad].liste++;
+    if (k.acilma > 0) hz[ad].acilan++;
+  });
+
+  // Ürünlere göre
+  const ur = {};
+  kayitlar.forEach(k => k.urunler.forEach(u => {
+    ur[u.id] = ur[u.id] || { liste: 0, adet: 0 };
+    ur[u.id].liste++;
+    ur[u.id].adet += u.adet;
+  }));
+  const urSirali = Object.entries(ur).sort((a, b) => b[1].liste - a[1].liste || b[1].adet - a[1].adet);
+  const urMax = urSirali.length ? urSirali[0][1].liste : 1;
+
+  // Aylara göre
+  const ay = {};
+  kayitlar.forEach(k => {
+    const a = k.tarih.getFullYear() + '-' + String(k.tarih.getMonth() + 1).padStart(2, '0');
+    ay[a] = (ay[a] || 0) + 1;
+  });
+  const aySirali = Object.entries(ay).sort((a, b) => b[0].localeCompare(a[0]));
+  const ayMax = Math.max(...Object.values(ay));
+
+  const yuzde = (a, b) => b ? Math.round(a * 100 / b) : 0;
+
+  $('sonuc').innerHTML = `
+    <div class="kutular">
+      <div class="kutu"><div class="d">${toplam}</div><div class="e">Oluşturulan liste</div></div>
+      <div class="kutu"><div class="d">${acilan}</div><div class="e">Açılan liste (%${yuzde(acilan, toplam)})</div></div>
+      <div class="kutu"><div class="d">${toplamAcilma}</div><div class="e">Toplam açılma</div></div>
+      <div class="kutu"><div class="d">${toplamUrun}</div><div class="e">Önerilen toplam ürün adedi</div></div>
+    </div>
+
+    <div class="bolum">
+      <h2>Hazırlayana Göre</h2>
+      <table>
+        <tr><th>Hazırlayan</th><th class="s">Liste</th><th class="s">Açılan</th><th class="s">Açılma oranı</th></tr>
+        ${Object.entries(hz).sort((a, b) => b[1].liste - a[1].liste).map(([ad, v]) =>
+          `<tr><td>${esc(ad)}</td><td class="s">${v.liste}</td><td class="s">${v.acilan}</td><td class="s">%${yuzde(v.acilan, v.liste)}</td></tr>`).join('')}
+      </table>
+    </div>
+
+    <div class="bolum">
+      <h2>En Çok Önerilen Ürünler</h2>
+      <table>
+        <tr><th>Ürün</th><th class="s">Liste sayısı</th><th class="s">Toplam adet</th><th style="width:30%"></th></tr>
+        ${urSirali.map(([id, v]) =>
+          `<tr><td>${esc(urunAdi(id))}</td><td class="s">${v.liste}</td><td class="s">${v.adet}</td>
+           <td><div class="cubuk" style="width:${Math.round(v.liste * 100 / urMax)}%"></div></td></tr>`).join('')}
+      </table>
+    </div>
+
+    <div class="bolum">
+      <h2>Aylara Göre Liste Sayısı</h2>
+      <table>
+        ${aySirali.map(([a, n]) => {
+          const [yil, ayNo] = a.split('-');
+          return `<tr><td style="width:130px">${AY_ADLARI[+ayNo - 1]} ${yil}</td><td class="s" style="width:50px">${n}</td>
+                  <td><div class="cubuk" style="width:${Math.round(n * 100 / ayMax)}%"></div></td></tr>`;
+        }).join('')}
+      </table>
+    </div>
+
+    <div class="bolum">
+      <h2>Listeler (${toplam})</h2>
+      <table>
+        <tr><th>Tarih</th><th>Kişi</th><th>Hazırlayan</th><th>Ürünler</th><th class="s">Açılma</th><th>Link</th></tr>
+        ${kayitlar.map(k => `
+          <tr>
+            <td style="white-space:nowrap">${tarihYaz(k.tarih)}</td>
+            <td>${esc(k.kisi) || '—'}</td>
+            <td>${esc(k.hazirlayan) || '—'}</td>
+            <td class="urunler">${k.urunler.map(u => `<div>${esc(urunAdi(u.id))} × ${u.adet}</div>`).join('')}</td>
+            <td class="s">${k.acilma}</td>
+            <td><a href="${MUSTERI_TABAN}?l=${esc(k.kod)}&p=1" target="_blank" rel="noopener">${esc(k.kod)}</a></td>
+          </tr>`).join('')}
+      </table>
+    </div>`;
+}
+
+// ---------- CSV (ürün başına bir satır; Excel için ; ayraçlı + UTF-8 BOM) ----------
+$('csv').addEventListener('click', () => {
+  const kayitlar = filtreliKayitlar();
+  const h = v => {
+    const s = String(v ?? '');
+    return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const satirlar = [['Tarih', 'Kod', 'Kişi', 'Hazırlayan', 'Açılma', 'Ürün ID', 'Ürün', 'Kategori', 'Adet', 'Günde', 'Zaman', 'Açıklama']];
+  kayitlar.forEach(k => k.urunler.forEach(u => satirlar.push([
+    tarihYaz(k.tarih), k.kod, k.kisi, k.hazirlayan, k.acilma,
+    u.id, urunAdi(u.id), (urunHarita[u.id] && urunHarita[u.id].kategori) || '',
+    u.adet, u.gunde || '', u.zaman, u.not
+  ])));
+  const icerik = '﻿' + satirlar.map(r => r.map(h).join(';')).join('\r\n');
+  const blob = new Blob([icerik], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const bugun = new Date().toISOString().slice(0, 10);
+  a.download = `takviye-rapor-${$('donem').value}-${bugun}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+</script>
+</body>
+</html>
