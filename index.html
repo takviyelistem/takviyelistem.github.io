@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Musteri sayfasi: acilma sayaci (ayni cihaz 1 kez, &p=1 onizlemede sayilmaz) ---15/11/2026---09:00 -->
+<!--- Musteri sayfasi: Satin Al tiklama takibi (urun basina, ayni cihaz 1 kez) ---15/11/2026---10:45 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -51,7 +51,7 @@
 <footer>Her ürünün altındaki butona basarak Trendyol'daki ürün sayfasına gidebilirsiniz.</footer>
 
 <script>
-//--- Ortak: Firebase (Firestore REST) kayit/okuma; kayit icin giris token (Authorization) ---15/11/2026---09:45
+//--- Ortak: Firebase (Firestore REST) kayit/okuma + acilma (o) ve urun tiklama (c) sayaclari ---15/11/2026---10:45
 // Firestore REST API kullanılıyor (SDK yüklemeye gerek yok).
 // Erişim izinleri Firestore Rules ile kontrol ediliyor: sadece yeni kayıt + kodla okuma.
 
@@ -136,18 +136,26 @@ async function listeOku(kod) {
   return { liste, kisi: f.k ? f.k.stringValue : "" };
 }
 
-// Müşteri linki açınca sayacı +1 artırır (Rules: sadece "o" alanı, sadece +1)
-async function listeAcildi(kod) {
+// Sayaç artırma (Firestore commit + increment). Rules sadece tek alanın +1 artmasına izin verir.
+async function sayacArtir(kod, alanYolu) {
   const belge = `projects/${FIREBASE.projectId}/databases/(default)/documents/listeler/${kod}`;
-  await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents:commit?key=${FIREBASE.apiKey}`, {
+  const yanit = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents:commit?key=${FIREBASE.apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    keepalive: true,   // sayfa arka plana geçse de istek tamamlansın
     body: JSON.stringify({ writes: [{
-      transform: { document: belge, fieldTransforms: [{ fieldPath: "o", increment: { integerValue: "1" } }] },
+      transform: { document: belge, fieldTransforms: [{ fieldPath: alanYolu, increment: { integerValue: "1" } }] },
       currentDocument: { exists: true }
     }] })
   });
+  if (!yanit.ok) throw new Error("Sayaç hatası: HTTP " + yanit.status);
 }
+
+// Müşteri linki açtı -> "o" +1
+const listeAcildi = kod => sayacArtir(kod, "o");
+
+// Müşteri bir ürünün "Satın Al" butonuna bastı -> "c.<ürünId>" +1
+const urunTiklandi = (kod, urunId) => sayacArtir(kod, "c.`" + String(urunId).replace(/[`\\]/g, "") + "`");
 </script>
 <script>
 // Link formatları:
@@ -238,7 +246,7 @@ async function baslat() {
           <div class="adet">Adet: <b>${adet}</b></div>
           ${kullanim ? `<div class="kullanim">Kullanım: ${kullanim}</div>` : ''}
           ${not ? `<div class="not">${esc(not)}</div>` : ''}
-          <a class="btn" href="${esc(urun.link)}" target="_blank" rel="noopener">Trendyol'da Satın Al</a>
+          <a class="btn" href="${esc(urun.link)}" target="_blank" rel="noopener" data-urun="${esc(urun.id)}">Trendyol'da Satın Al</a>
         </div>
       </div>`;
   });
@@ -246,6 +254,21 @@ async function baslat() {
   alan.innerHTML = html || '<div class="bos">Bu linkteki ürünler artık listede bulunmuyor.</div>';
 }
 baslat();
+
+// "Satın Al" tıklama takibi: sadece kısa linkte, önizlemede değil, aynı cihazdan ürün başına 1 kez
+document.getElementById('liste').addEventListener('click', e => {
+  const btn = e.target.closest('a[data-urun]');
+  if (!btn) return;
+  const p = new URLSearchParams(location.search);
+  const kod = (p.get('l') || '').trim();
+  if (!kod || p.get('p') === '1') return;
+  const id = btn.dataset.urun;
+  const anahtar = 'tik_' + kod + '_' + id;
+  try { if (localStorage.getItem(anahtar) === '1') return; } catch (err) {}
+  urunTiklandi(kod, id).then(() => {
+    try { localStorage.setItem(anahtar, '1'); } catch (err) {}
+  }).catch(() => {});
+});
 </script>
 </body>
 </html>

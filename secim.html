@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Secim sayfasi: e-posta/sifre girisi (sadece Admin ve Omer), hazirlayan girişten otomatik ---15/11/2026---09:45 -->
+<!--- Secim sayfasi: Musteri Ad Soyad zorunlu (siparis eslestirme icin) ---15/11/2026---10:45 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -14,6 +14,7 @@
   .ust h1 { margin:0 0 8px; font-size:17px; }
   input[type=search], input[type=text], textarea { width:100%; font-size:16px; padding:9px 10px; border:1px solid var(--cizgi); border-radius:8px; font-family:inherit; }
   .kisi { margin-top:8px; }
+  .kisi.uyari { border-color:#d93025; background:#fff4f3; }
   .ust .baslik { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
   .ust .baslik h1 { margin:0; flex:1; }
   .ust .kullanici { font-size:13px; color:var(--gri); }
@@ -74,7 +75,7 @@
     <button class="cikis" id="cikisBtn" hidden>Çıkış</button>
   </div>
   <input type="search" id="ara" placeholder="Ürün ara..." autocomplete="off">
-  <input type="text" id="kisi" class="kisi" placeholder="Kişi adı (isteğe bağlı) — ör. Ahmet Bey" autocomplete="off">
+  <input type="text" id="kisi" class="kisi" placeholder="Müşteri Ad Soyad (zorunlu) — Trendyol'daki gibi" autocomplete="off">
   <div class="kategoriler" id="kategoriler"></div>
 </div>
 
@@ -115,7 +116,7 @@
 </div>
 
 <script>
-//--- Ortak: Firebase (Firestore REST) kayit/okuma; kayit icin giris token (Authorization) ---15/11/2026---09:45
+//--- Ortak: Firebase (Firestore REST) kayit/okuma + acilma (o) ve urun tiklama (c) sayaclari ---15/11/2026---10:45
 // Firestore REST API kullanılıyor (SDK yüklemeye gerek yok).
 // Erişim izinleri Firestore Rules ile kontrol ediliyor: sadece yeni kayıt + kodla okuma.
 
@@ -200,18 +201,26 @@ async function listeOku(kod) {
   return { liste, kisi: f.k ? f.k.stringValue : "" };
 }
 
-// Müşteri linki açınca sayacı +1 artırır (Rules: sadece "o" alanı, sadece +1)
-async function listeAcildi(kod) {
+// Sayaç artırma (Firestore commit + increment). Rules sadece tek alanın +1 artmasına izin verir.
+async function sayacArtir(kod, alanYolu) {
   const belge = `projects/${FIREBASE.projectId}/databases/(default)/documents/listeler/${kod}`;
-  await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents:commit?key=${FIREBASE.apiKey}`, {
+  const yanit = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents:commit?key=${FIREBASE.apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    keepalive: true,   // sayfa arka plana geçse de istek tamamlansın
     body: JSON.stringify({ writes: [{
-      transform: { document: belge, fieldTransforms: [{ fieldPath: "o", increment: { integerValue: "1" } }] },
+      transform: { document: belge, fieldTransforms: [{ fieldPath: alanYolu, increment: { integerValue: "1" } }] },
       currentDocument: { exists: true }
     }] })
   });
+  if (!yanit.ok) throw new Error("Sayaç hatası: HTTP " + yanit.status);
 }
+
+// Müşteri linki açtı -> "o" +1
+const listeAcildi = kod => sayacArtir(kod, "o");
+
+// Müşteri bir ürünün "Satın Al" butonuna bastı -> "c.<ürünId>" +1
+const urunTiklandi = (kod, urunId) => sayacArtir(kod, "c.`" + String(urunId).replace(/[`\\]/g, "") + "`");
 </script>
 <script>
 const KAYIT_ANAHTAR = 'takviyeSecim_v1';
@@ -418,7 +427,7 @@ $('kategoriler').addEventListener('click', e => {
 });
 
 $('ara').addEventListener('input', listeyiCiz);
-$('kisi').addEventListener('input', () => kaydet());
+$('kisi').addEventListener('input', () => { $('kisi').classList.remove('uyari'); kaydet(); });
 
 
 $('temizle').addEventListener('click', () => {
@@ -427,7 +436,20 @@ $('temizle').addEventListener('click', () => {
   yeniListe();
 });
 
+// Ad Soyad: sipariş eşleştirmesi için en az iki kelime (ad + soyad)
+function adSoyadGecerli(metin) {
+  const parcalar = metin.trim().split(/\s+/).filter(p => p.length >= 2);
+  return parcalar.length >= 2;
+}
+
 $('olustur').addEventListener('click', async () => {
+  if (!adSoyadGecerli($('kisi').value)) {
+    $('kisi').classList.add('uyari');
+    $('kisi').focus();
+    window.scrollTo(0, 0);
+    bildir('Müşterinin adını ve soyadını yazın');
+    return;
+  }
   const btn = $('olustur');
   btn.disabled = true;
   btn.textContent = 'Oluşturuluyor...';

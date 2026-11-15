@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Rapor sayfasi: e-posta/sifre girisi (sadece Admin UID), donem/hazirlayan filtresi, ozet, CSV ---15/11/2026---09:45 -->
+<!--- Rapor sayfasi: satis (Trendyol siparis eslestirme) ve Satin Al tiklama bolumleri eklendi ---15/11/2026---11:40 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -42,6 +42,12 @@
   .mesaj { text-align:center; color:var(--gri); padding:30px 10px; }
   .hata { color:#d93025; }
   [hidden] { display:none !important; }
+  .etiket { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .etiket.kesin { background:#e6f4ea; color:#137333; }
+  .etiket.olasi { background:#fef7e0; color:#a56300; }
+  .etiket.yok { background:#f1f3f4; color:#5f6368; }
+  .kutu .d.yesil { color:#137333; }
+  .not { font-size:12px; color:var(--gri); margin-top:6px; }
 </style>
 </head>
 <body>
@@ -78,6 +84,14 @@
     </div>
     <label>Hazırlayan
       <select id="hazirlayanFiltre"><option value="">Hepsi</option></select>
+    </label>
+    <label>Satış
+      <select id="satisFiltre">
+        <option value="">Hepsi</option>
+        <option value="kesin">Satışa dönen (kesin)</option>
+        <option value="olasi">Olası satış</option>
+        <option value="yok">Satışa dönmeyen</option>
+      </select>
     </label>
     <button class="btn ana" id="getir">Getir</button>
     <button class="btn ikincil" id="csv" disabled>CSV İndir</button>
@@ -233,37 +247,86 @@ async function getir() {
   }
 }
 
+// Firestore REST değerini düz JS değerine çevirir (iç içe map/array dahil)
+function fsDeger(v) {
+  if (!v) return null;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return parseInt(v.integerValue, 10);
+  if ('doubleValue' in v) return Number(v.doubleValue);
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('timestampValue' in v) return new Date(v.timestampValue);
+  if ('nullValue' in v) return null;
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fsDeger);
+  if ('mapValue' in v) {
+    const o = {};
+    Object.entries(v.mapValue.fields || {}).forEach(([k, x]) => o[k] = fsDeger(x));
+    return o;
+  }
+  return null;
+}
+
 function belgeCoz(d) {
-  const f = d.fields || {};
+  const f = {};
+  Object.entries(d.fields || {}).forEach(([k, v]) => f[k] = fsDeger(v));
   const kod = d.name.split('/').pop();
-  const u = ((f.u && f.u.arrayValue && f.u.arrayValue.values) || []).map(e => {
-    const m = (e.mapValue && e.mapValue.fields) || {};
-    return {
-      id: m.i ? m.i.stringValue : '',
-      adet: m.a ? parseInt(m.a.integerValue, 10) || 1 : 1,
-      gunde: m.g ? parseInt(m.g.integerValue, 10) || 0 : 0,
-      zaman: m.z && m.z.stringValue ? m.z.stringValue : '',
-      not: m.n ? m.n.stringValue : ''
-    };
-  });
+  const u = (f.u || []).map(m => ({
+    id: String(m.i ?? ''),
+    adet: m.a || 1,
+    gunde: m.g || 0,
+    zaman: m.z || '',
+    not: m.n || ''
+  }));
+  const tik = f.c || {};
+  const s = f.s || null;
+  const siparisler = (s && s.siparisler) || [];
+  // Listeden satılan (iade hariç) ürünler ve tutar
+  const satilan = {}, satilanTutar = {};
+  let tutar = 0, iadeVar = false;
+  siparisler.forEach(sp => (sp.urunler || []).forEach(x => {
+    if (x.iade) { iadeVar = true; return; }
+    if (!x.listede) return;
+    satilan[x.i] = (satilan[x.i] || 0) + (x.a || 0);
+    satilanTutar[x.i] = (satilanTutar[x.i] || 0) + (x.a || 0) * (x.f || 0);
+    tutar += (x.a || 0) * (x.f || 0);
+  }));
   return {
     kod,
-    tarih: new Date(f.t ? f.t.timestampValue : d.createTime),
-    kisi: f.k ? f.k.stringValue : '',
-    hazirlayan: f.h ? f.h.stringValue : '',
-    acilma: f.o ? parseInt(f.o.integerValue, 10) || 0 : 0,
-    urunler: u
+    tarih: f.t instanceof Date ? f.t : new Date(d.createTime),
+    kisi: f.k || '',
+    hazirlayan: f.h || '',
+    acilma: f.o || 0,
+    urunler: u,
+    tik,                                   // {ürünId: tıklama}
+    tikToplam: Object.values(tik).reduce((a, b) => a + (b || 0), 0),
+    satis: s ? s.durum : '',               // 'kesin' | 'olasi' | ''
+    siparisSayisi: siparisler.length,
+    satilan,                               // {ürünId: adet} (listede olan, iade hariç)
+    satilanTutar,                          // {ürünId: tutar}
+    tutar,
+    iadeVar
   };
 }
 
 const urunAdi = id => (urunHarita[id] && urunHarita[id].ad) || ('Ürün #' + id);
+const para = n => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
 function filtreliKayitlar() {
   const h = $('hazirlayanFiltre').value;
-  if (!h) return sonKayitlar;
-  if (h === '-') return sonKayitlar.filter(k => !k.hazirlayan);
-  return sonKayitlar.filter(k => k.hazirlayan === h);
+  const sf = $('satisFiltre').value;
+  return sonKayitlar.filter(k => {
+    if (h === '-' && k.hazirlayan) return false;
+    if (h && h !== '-' && k.hazirlayan !== h) return false;
+    if (sf === 'kesin' && k.satis !== 'kesin') return false;
+    if (sf === 'olasi' && k.satis !== 'olasi') return false;
+    if (sf === 'yok' && k.satis) return false;
+    return true;
+  });
 }
+$('satisFiltre').addEventListener('change', () => sonKayitlar.length && ciz());
+
+const satisEtiketi = k => k.satis === 'kesin' ? '<span class="etiket kesin">Satış ✓</span>'
+  : k.satis === 'olasi' ? '<span class="etiket olasi">Olası</span>'
+  : '<span class="etiket yok">—</span>';
 
 // ---------- Çizim ----------
 function ciz() {
@@ -273,28 +336,39 @@ function ciz() {
     $('sonuc').innerHTML = '<div class="mesaj">Bu dönemde kayıt yok.</div>';
     return;
   }
+  const yuzde = (a, b) => b ? Math.round(a * 100 / b) : 0;
 
   const toplam = kayitlar.length;
   const acilan = kayitlar.filter(k => k.acilma > 0).length;
-  const toplamAcilma = kayitlar.reduce((t, k) => t + k.acilma, 0);
-  const toplamUrun = kayitlar.reduce((t, k) => t + k.urunler.reduce((a, u) => a + u.adet, 0), 0);
+  const tiklanan = kayitlar.filter(k => k.tikToplam > 0).length;
+  const kesin = kayitlar.filter(k => k.satis === 'kesin');
+  const olasi = kayitlar.filter(k => k.satis === 'olasi');
+  const kesinTutar = kesin.reduce((t, k) => t + k.tutar, 0);
+  const olasiTutar = olasi.reduce((t, k) => t + k.tutar, 0);
 
   // Hazırlayana göre
   const hz = {};
   kayitlar.forEach(k => {
     const ad = k.hazirlayan || '(Belirtilmemiş)';
-    hz[ad] = hz[ad] || { liste: 0, acilan: 0 };
-    hz[ad].liste++;
-    if (k.acilma > 0) hz[ad].acilan++;
+    const h = hz[ad] = hz[ad] || { liste: 0, acilan: 0, tiklanan: 0, kesin: 0, olasi: 0, tutar: 0 };
+    h.liste++;
+    if (k.acilma > 0) h.acilan++;
+    if (k.tikToplam > 0) h.tiklanan++;
+    if (k.satis === 'kesin') { h.kesin++; h.tutar += k.tutar; }
+    if (k.satis === 'olasi') h.olasi++;
   });
 
   // Ürünlere göre
   const ur = {};
-  kayitlar.forEach(k => k.urunler.forEach(u => {
-    ur[u.id] = ur[u.id] || { liste: 0, adet: 0 };
-    ur[u.id].liste++;
-    ur[u.id].adet += u.adet;
-  }));
+  kayitlar.forEach(k => {
+    k.urunler.forEach(u => {
+      const x = ur[u.id] = ur[u.id] || { liste: 0, adet: 0, tik: 0, satilan: 0 };
+      x.liste++;
+      x.adet += u.adet;
+      x.tik += k.tik[u.id] || 0;
+      if (k.satis === 'kesin') x.satilan += k.satilan[u.id] || 0;
+    });
+  });
   const urSirali = Object.entries(ur).sort((a, b) => b[1].liste - a[1].liste || b[1].adet - a[1].adet);
   const urMax = urSirali.length ? urSirali[0][1].liste : 1;
 
@@ -302,47 +376,57 @@ function ciz() {
   const ay = {};
   kayitlar.forEach(k => {
     const a = k.tarih.getFullYear() + '-' + String(k.tarih.getMonth() + 1).padStart(2, '0');
-    ay[a] = (ay[a] || 0) + 1;
+    const x = ay[a] = ay[a] || { liste: 0, kesin: 0 };
+    x.liste++;
+    if (k.satis === 'kesin') x.kesin++;
   });
   const aySirali = Object.entries(ay).sort((a, b) => b[0].localeCompare(a[0]));
-  const ayMax = Math.max(...Object.values(ay));
-
-  const yuzde = (a, b) => b ? Math.round(a * 100 / b) : 0;
+  const ayMax = Math.max(...Object.values(ay).map(x => x.liste));
 
   $('sonuc').innerHTML = `
     <div class="kutular">
       <div class="kutu"><div class="d">${toplam}</div><div class="e">Oluşturulan liste</div></div>
       <div class="kutu"><div class="d">${acilan}</div><div class="e">Açılan liste (%${yuzde(acilan, toplam)})</div></div>
-      <div class="kutu"><div class="d">${toplamAcilma}</div><div class="e">Toplam açılma</div></div>
-      <div class="kutu"><div class="d">${toplamUrun}</div><div class="e">Önerilen toplam ürün adedi</div></div>
+      <div class="kutu"><div class="d">${tiklanan}</div><div class="e">"Satın Al"a tıklanan (%${yuzde(tiklanan, toplam)})</div></div>
+      <div class="kutu"><div class="d yesil">${kesin.length}</div><div class="e">Satışa dönen (%${yuzde(kesin.length, toplam)})</div></div>
+      <div class="kutu"><div class="d yesil">${para(kesinTutar)}</div><div class="e">Listeden satış tutarı</div></div>
+      <div class="kutu"><div class="d">${olasi.length}</div><div class="e">Olası satış (${para(olasiTutar)})</div></div>
     </div>
 
     <div class="bolum">
       <h2>Hazırlayana Göre</h2>
       <table>
-        <tr><th>Hazırlayan</th><th class="s">Liste</th><th class="s">Açılan</th><th class="s">Açılma oranı</th></tr>
+        <tr><th>Hazırlayan</th><th class="s">Liste</th><th class="s">Açılan</th><th class="s">Tıklanan</th>
+            <th class="s">Satış</th><th class="s">Dönüşüm</th><th class="s">Tutar</th><th class="s">Olası</th></tr>
         ${Object.entries(hz).sort((a, b) => b[1].liste - a[1].liste).map(([ad, v]) =>
-          `<tr><td>${esc(ad)}</td><td class="s">${v.liste}</td><td class="s">${v.acilan}</td><td class="s">%${yuzde(v.acilan, v.liste)}</td></tr>`).join('')}
+          `<tr><td>${esc(ad)}</td><td class="s">${v.liste}</td><td class="s">${v.acilan}</td><td class="s">${v.tiklanan}</td>
+               <td class="s">${v.kesin}</td><td class="s">%${yuzde(v.kesin, v.liste)}</td><td class="s">${para(v.tutar)}</td>
+               <td class="s">${v.olasi}</td></tr>`).join('')}
       </table>
     </div>
 
     <div class="bolum">
-      <h2>En Çok Önerilen Ürünler</h2>
+      <h2>Ürünler</h2>
       <table>
-        <tr><th>Ürün</th><th class="s">Liste sayısı</th><th class="s">Toplam adet</th><th style="width:30%"></th></tr>
+        <tr><th>Ürün</th><th class="s">Liste</th><th class="s">Önerilen adet</th><th class="s">Tıklama</th>
+            <th class="s">Satılan adet</th><th style="width:22%"></th></tr>
         ${urSirali.map(([id, v]) =>
           `<tr><td>${esc(urunAdi(id))}</td><td class="s">${v.liste}</td><td class="s">${v.adet}</td>
+           <td class="s">${v.tik}</td><td class="s">${v.satilan}</td>
            <td><div class="cubuk" style="width:${Math.round(v.liste * 100 / urMax)}%"></div></td></tr>`).join('')}
       </table>
+      <div class="not">Satılan adet: sadece kesin eşleşen listelerde, listede önerilen ürünlerden alınan (iadeler hariç).</div>
     </div>
 
     <div class="bolum">
-      <h2>Aylara Göre Liste Sayısı</h2>
+      <h2>Aylara Göre</h2>
       <table>
-        ${aySirali.map(([a, n]) => {
+        <tr><th>Ay</th><th class="s">Liste</th><th class="s">Satış</th><th></th></tr>
+        ${aySirali.map(([a, v]) => {
           const [yil, ayNo] = a.split('-');
-          return `<tr><td style="width:130px">${AY_ADLARI[+ayNo - 1]} ${yil}</td><td class="s" style="width:50px">${n}</td>
-                  <td><div class="cubuk" style="width:${Math.round(n * 100 / ayMax)}%"></div></td></tr>`;
+          return `<tr><td style="width:130px">${AY_ADLARI[+ayNo - 1]} ${yil}</td><td class="s" style="width:50px">${v.liste}</td>
+                  <td class="s" style="width:50px">${v.kesin}</td>
+                  <td><div class="cubuk" style="width:${Math.round(v.liste * 100 / ayMax)}%"></div></td></tr>`;
         }).join('')}
       </table>
     </div>
@@ -350,17 +434,25 @@ function ciz() {
     <div class="bolum">
       <h2>Listeler (${toplam})</h2>
       <table>
-        <tr><th>Tarih</th><th>Kişi</th><th>Hazırlayan</th><th>Ürünler</th><th class="s">Açılma</th><th>Link</th></tr>
+        <tr><th>Tarih</th><th>Kişi</th><th>Hazırlayan</th><th>Ürünler</th><th class="s">Açılma</th>
+            <th class="s">Tıklama</th><th>Satış</th><th>Link</th></tr>
         ${kayitlar.map(k => `
           <tr>
             <td style="white-space:nowrap">${tarihYaz(k.tarih)}</td>
             <td>${esc(k.kisi) || '—'}</td>
             <td>${esc(k.hazirlayan) || '—'}</td>
-            <td class="urunler">${k.urunler.map(u => `<div>${esc(urunAdi(u.id))} × ${u.adet}</div>`).join('')}</td>
+            <td class="urunler">${k.urunler.map(u => {
+              const sat = k.satilan[u.id] ? ` <b style="color:#137333">✓ ${k.satilan[u.id]} alındı</b>` : '';
+              const t = k.tik[u.id] ? ` <span style="color:var(--gri)">(tıklandı)</span>` : '';
+              return `<div>${esc(urunAdi(u.id))} × ${u.adet}${t}${sat}</div>`;
+            }).join('')}</td>
             <td class="s">${k.acilma}</td>
+            <td class="s">${k.tikToplam}</td>
+            <td>${satisEtiketi(k)}${k.tutar ? '<div style="font-size:12px">' + para(k.tutar) + '</div>' : ''}${k.iadeVar ? '<div style="font-size:12px;color:#d93025">iade var</div>' : ''}</td>
             <td><a href="${MUSTERI_TABAN}?l=${esc(k.kod)}&p=1" target="_blank" rel="noopener">${esc(k.kod)}</a></td>
           </tr>`).join('')}
       </table>
+      <div class="not">Satış: Trendyol siparişleriyle her sabah otomatik eşleştirilir. "Satış ✓" = ad-soyad + ürün + tarih tuttu; "Olası" = isim tutmadı ama o tarihlerde o ürünleri içeren tek liste bu.</div>
     </div>`;
 }
 
@@ -371,11 +463,17 @@ $('csv').addEventListener('click', () => {
     const s = String(v ?? '');
     return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
-  const satirlar = [['Tarih', 'Kod', 'Kişi', 'Hazırlayan', 'Açılma', 'Ürün ID', 'Ürün', 'Kategori', 'Adet', 'Günde', 'Zaman', 'Açıklama']];
+  const sayi = n => String(Math.round(n * 100) / 100).replace('.', ',');
+  const satirlar = [['Tarih', 'Kod', 'Kişi', 'Hazırlayan', 'Açılma', 'Ürün ID', 'Ürün', 'Kategori', 'Önerilen Adet',
+                     'Günde', 'Zaman', 'Açıklama', 'Tıklama', 'Satış Durumu', 'Satılan Adet', 'Satış Tutarı']];
   kayitlar.forEach(k => k.urunler.forEach(u => satirlar.push([
     tarihYaz(k.tarih), k.kod, k.kisi, k.hazirlayan, k.acilma,
     u.id, urunAdi(u.id), (urunHarita[u.id] && urunHarita[u.id].kategori) || '',
-    u.adet, u.gunde || '', u.zaman, u.not
+    u.adet, u.gunde || '', u.zaman, u.not,
+    k.tik[u.id] || 0,
+    k.satis === 'kesin' ? 'Kesin' : k.satis === 'olasi' ? 'Olası' : '',
+    k.satilan[u.id] || 0,
+    k.satilanTutar[u.id] ? sayi(k.satilanTutar[u.id]) : ''
   ])));
   const icerik = '﻿' + satirlar.map(r => r.map(h).join(';')).join('\r\n');
   const blob = new Blob([icerik], { type: 'text/csv;charset=utf-8' });
