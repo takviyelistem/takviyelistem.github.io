@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Secim sayfasi: QR Kod butonu + pasif urunler secimde gizli ---16/11/2026---23:00 -->
+<!--- Secim sayfasi: arama urunun Turkce anahtar kelimelerine de bakar ---17/11/2026---22:55 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -2623,7 +2623,7 @@ function listeyiCiz() {
   const gorunen = urunler.filter(u => {
     if (aktifKategori === 'Seçilenler' && !secim.has(u.id)) return false;
     if (aktifKategori !== 'Tümü' && aktifKategori !== 'Seçilenler' && u.kategori !== aktifKategori) return false;
-    if (q && !norm(u.ad + ' ' + (u.kategori || '')).includes(q)) return false;
+    if (q && !norm(u.ad + ' ' + (u.kategori || '') + ' ' + (u.anahtar || '')).includes(q)) return false;   // anahtar: Türkçe arama kelimeleri
     return true;
   });
 

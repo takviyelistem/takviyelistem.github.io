@@ -2,32 +2,161 @@
   "baslik": "Takviye Listem",
   "urunler": [
     {
-      "id": "25564059",
-      "ad": "Magnimore Plus Magnezyum 60 Tablet N-Asetil Taurinat Bisglisinat Malat",
-      "kategori": "Magnezyum",
-      "gorsel": "https://cdn.dsmcdn.com/ty1747/product/media/images/prod/PIM/20251003/13/d5bbe05e-8243-4dc4-9b18-ae7714af8a64/1_org_zoom.jpg",
-      "link": "https://www.trendyol.com/magnimore/plus-magnezyum-60-tablet-n-asetil-taurinat-bisglisinat-malat-p-25564059?boutiqueId=61&merchantId=1088906"
+      "id": "4080375",
+      "ad": "Nature's Bounty Multi-Day with Green Tea Extract 50 Tablet",
+      "kategori": "Multivitamin",
+      "gorsel": "https://cdn.dsmcdn.com/ty1792/prod/QC_ENRICHMENT/20251127/15/e4dfb418-c4a2-34d9-913e-6fcc21b2f885/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/nature-s-bounty/multi-day-with-green-tea-extract-50-tablet-p-4080375?boutiqueId=61&merchantId=1202653",
+      "anahtar": "multivitamin yeşil çay"
     },
     {
-      "id": "1130162785",
-      "ad": "Ocean ExtraMag Magnezyum Bisglisinat + P5P 60 Tablet",
-      "kategori": "Magnezyum",
-      "gorsel": "https://cdn.dsmcdn.com/ty1852/prod/QC_PREP/20260406/17/f0cd76b3-bcc4-3f01-8faf-621b62dedeb3/1_org_zoom.jpg",
-      "link": "https://www.trendyol.com/ocean/extramag-magnezyum-bisglisinat-p5p-60-tablet-p-1130162785?boutiqueId=61&merchantId=720131"
+      "id": "741432190",
+      "ad": "Supradyn Daily Koenzim Q10 30 Film Kaplı Tablet",
+      "kategori": "Multivitamin",
+      "gorsel": "https://cdn.dsmcdn.com/ty1742/prod/QC_ENRICHMENT/20250901/14/c1ad556c-7e12-3d03-8412-ea6c237d7e60/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/supradyn/daily-koenzim-q10-30-film-kapli-tablet-p-741432190?boutiqueId=61&merchantId=1202653",
+      "anahtar": "koenzim q10 multivitamin"
     },
     {
-      "id": "1137774464",
-      "ad": "Vitafenix Safran 30 Kapsül",
-      "kategori": "Bitkisel",
-      "gorsel": "https://cdn.dsmcdn.com/ty1931/prod/QC_ENRICHMENT/20260430/17/93858589-1611-344b-a978-5d352be6d6c8/1_org_zoom.jpg",
-      "link": "https://www.trendyol.com/vitafenix/safran-30-kapsul-p-1137774464?boutiqueId=61&merchantId=704308"
+      "id": "2485423",
+      "ad": "Supradyn Energy Daily 30 Film Kaplı Tablet | Koenzim Q10, Multivitamin ve Mineral",
+      "kategori": "Multivitamin",
+      "gorsel": "https://cdn.dsmcdn.com/ty1891/prod/QC_ENRICHMENT/20260813/09/71774d67-05dc-3ea9-9d08-ac01f6af1c0e/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/supradyn/energy-daily-30-film-kapli-tablet-koenzim-q10-multivitamin-ve-mineral-p-2485423?boutiqueId=61&merchantId=1202653",
+      "anahtar": "koenzim q10 multivitamin mineral"
     },
     {
-      "id": "96005667",
-      "ad": "Osende Vitamin D3K2 Kompleks Damla 20ml",
-      "kategori": "Vitamin",
-      "gorsel": "https://cdn.dsmcdn.com/ty1905/prod/QC_ENRICHMENT/20260611/09/ae508d1a-461a-398c-ac42-578270bb6fd7/1_org_zoom.jpg",
-      "link": "https://www.trendyol.com/osende/vitamin-d3k2-kompleks-damla-20ml-p-96005667?boutiqueId=61&merchantId=205520"
+      "id": "262195761",
+      "ad": "Supradyn Focus 30 Film Kaplı Tablet | Zeytin Polifenolü, Ginseng, Multivitamin ve Mineral",
+      "kategori": "Multivitamin",
+      "gorsel": "https://cdn.dsmcdn.com/ty1531/product/media/images/prod/QC/20240829/19/c47fa72b-bbbf-37ef-9f08-43d82e6a1400/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/supradyn/focus-30-film-kapli-tablet-zeytin-polifenolu-ginseng-multivitamin-ve-mineral-iceren-takv-p-262195761?boutiqueId=61&merchantId=1202653",
+      "anahtar": "multivitamin ginseng"
+    },
+    {
+      "id": "45533379",
+      "ad": "Ocean Orzax Vitamin C 1000 mg 30 Tablet",
+      "kategori": "Vitamin C",
+      "gorsel": "https://cdn.dsmcdn.com/ty1000412/product/media/images/prod/PIM/20260708/11/ed3fe84e-ee65-4863-90e3-72afb7dadf85/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/ocean/orzax-vitamin-c-1000-mg-30-tablet-p-45533379?boutiqueId=61&merchantId=1202653",
+      "anahtar": "c vitamini"
+    },
+    {
+      "id": "44600103",
+      "ad": "Redoxon Üçlü Etki 15 Efervesan Tablet | 1000 mg C Vitamini, D Vitamini ve Çinko",
+      "kategori": "Vitamin C",
+      "gorsel": "https://cdn.dsmcdn.com/ty1908/prod/QC_ENRICHMENT/20260516/08/078a38dd-abbb-36fb-84a2-48c8cc5a31e9/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/redoxon/uclu-etki-15-efervesan-tablet-i-1000-mg-c-vitamini-d-vitamini-ve-cinko-iceren-takviye-edici-p-44600103?boutiqueId=61&merchantId=1202653",
+      "anahtar": "c vitamini d vitamini çinko efervesan"
+    },
+    {
+      "id": "44712540",
+      "ad": "Redoxon Üçlü Etki 30 Efervesan Tablet | 1000 mg C Vitamini, D Vitamini ve Çinko",
+      "kategori": "Vitamin C",
+      "gorsel": "https://cdn.dsmcdn.com/ty1812/prod/QC_ENRICHMENT/20260121/10/5ead4a76-f3f9-3cf4-b71c-636900654672/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/redoxon/uclu-etki-30-efervesan-tablet-i-1000-mg-c-vitamini-d-vitamini-ve-cinko-iceren-takviye-edici-p-44712540?boutiqueId=61&merchantId=1202653",
+      "anahtar": "c vitamini d vitamini çinko efervesan"
+    },
+    {
+      "id": "1100314029",
+      "ad": "Ocean D3K2 Damla 20+20 ml - İkincisi %50",
+      "kategori": "D Vitamini",
+      "gorsel": "https://cdn.dsmcdn.com/ty1828/prod/QC_PREP/20260218/17/b14fe26c-a153-3e94-9ac0-67e258cedba1/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/ocean/d3k2-damla-20-20-ml-ikincisi-50-p-1100314029?boutiqueId=61&merchantId=1202653",
+      "anahtar": "d vitamini k2 vitamini damla"
+    },
+    {
+      "id": "234050621",
+      "ad": "Solgar Vitamin D3 1000 IU 25 mcg 100 Yumuşak Kapsül",
+      "kategori": "D Vitamini",
+      "gorsel": "https://cdn.dsmcdn.com/ty1779/prod/QC_ENRICHMENT/20251027/09/8f174084-37d6-3691-87d2-fb923397687e/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/solgar/vitamin-d3-1000-iu-25-mcg-100-yumusak-kapsul-p-234050621?boutiqueId=61&merchantId=1202653",
+      "anahtar": "d vitamini d3"
+    },
+    {
+      "id": "117274048",
+      "ad": "Ocean B Complex 60 Kapsül",
+      "kategori": "B Vitamini",
+      "gorsel": "https://cdn.dsmcdn.com/ty1000036/product/media/images/prod/PIM/20251124/07/b2cab289-ab87-4f26-9239-b9c89ab9bae3/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/ocean/b-complex-60-kapsul-takviye-edici-gida-p-117274048?boutiqueId=61&merchantId=1202653",
+      "anahtar": "b vitamini kompleks"
+    },
+    {
+      "id": "6476289",
+      "ad": "Ocean Methyl B12 Dilaltı Sprey - Vitamin B12 - 1000 µg (Metilkobalamin) - 10 ml",
+      "kategori": "B Vitamini",
+      "gorsel": "https://cdn.dsmcdn.com/ty1000038/product/media/images/prod/PIM/20251204/12/547fbec5-ca19-42dc-8323-9f506fb9adf5/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/ocean/methyl-b12-dilalti-sprey-vitamin-b12-takviye-edici-gida-1000-g-metilkobalamin-10-ml-p-6476289?boutiqueId=61&merchantId=1202653",
+      "anahtar": "b12 vitamini metilkobalamin sprey"
+    },
+    {
+      "id": "107044400",
+      "ad": "Nature's Bounty Calcium Vitamin D3 600 With 60 Tablet",
+      "kategori": "Mineral",
+      "gorsel": "https://cdn.dsmcdn.com/ty116/product/media/images/20210520/16/89872936/176112922/1/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/nature-s-bounty/calcium-vitamin-d3-600-with-60-tablet-p-107044400?boutiqueId=61&merchantId=1202653",
+      "anahtar": "kalsiyum d vitamini"
+    },
+    {
+      "id": "2485262",
+      "ad": "Nature's Bounty Gentle Iron 17 mg 60 Kapsül",
+      "kategori": "Mineral",
+      "gorsel": "https://cdn.dsmcdn.com/ty1653/prod/QC/20250326/11/ea3b18ed-f5ad-39a0-9c65-552479658515/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/nature-s-bounty/gentle-iron-17-mg-60-kapsul-p-2485262?boutiqueId=61&merchantId=1202653",
+      "anahtar": "demir"
+    },
+    {
+      "id": "2485264",
+      "ad": "Nature's Bounty Zinc Gluconate 10 Mg 100 Tablet",
+      "kategori": "Mineral",
+      "gorsel": "https://cdn.dsmcdn.com/ty1811/prod/QC_ENRICHMENT/20260113/13/d3827299-b197-3fa6-9d6b-bd985a387f8c/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/nature-s-bounty/zinc-gluconate-10-mg-100-tablet-p-2485264?boutiqueId=61&merchantId=1202653",
+      "anahtar": "çinko"
+    },
+    {
+      "id": "109786330",
+      "ad": "Ocean Iodine 150 µg İyot 30 ml",
+      "kategori": "Mineral",
+      "gorsel": "https://cdn.dsmcdn.com/ty1000396/product/media/images/prod/PIM/20260512/06/470380ae-2037-4280-9b38-5f2420acd1b9/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/ocean/iodine-150-ug-iyot-30-ml-p-109786330?boutiqueId=61&merchantId=1202653",
+      "anahtar": "iyot"
+    },
+    {
+      "id": "7085097",
+      "ad": "Solgar Calcium Magnesium Vitamin D3 150 Tablet",
+      "kategori": "Mineral",
+      "gorsel": "https://cdn.dsmcdn.com/ty1581/prod/QC/20241009/05/bbe869e5-fdc8-3444-bf43-12f03e8bb2dd/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/solgar/calcium-magnesium-vitamin-d3-150-tablet-p-7085097?boutiqueId=61&merchantId=1202653",
+      "anahtar": "kalsiyum magnezyum d vitamini"
+    },
+    {
+      "id": "877499402",
+      "ad": "Ocean Cogniven Likit 150 ml",
+      "kategori": "Bitkisel & Diğer",
+      "gorsel": "https://cdn.dsmcdn.com/ty1000316/product/media/images/prod/PIM/20260224/06/e8c9527a-0ce5-4f23-a64d-95a42d120ceb/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/ocean/cogniven-likit-150-ml-p-877499402?boutiqueId=61&merchantId=1202653"
+    },
+    {
+      "id": "2485390",
+      "ad": "Ocean Orzax Çörek Otu Yağı 1000mg 60 Kapsül",
+      "kategori": "Bitkisel & Diğer",
+      "gorsel": "https://cdn.dsmcdn.com/ty1747/product/media/images/prod/PIM/20251002/14/3b78666a-01bb-4a66-a61b-388444704658/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/ocean/orzax-corek-otu-yagi-1000mg-60-kapsul-p-2485390?boutiqueId=61&merchantId=1202653",
+      "anahtar": "çörek otu"
+    },
+    {
+      "id": "951800360",
+      "ad": "Orzax Ocean Bromelain 500 mg 2400 GDU/g 60 Kapsül",
+      "kategori": "Bitkisel & Diğer",
+      "gorsel": "https://cdn.dsmcdn.com/ty1000314/product/media/images/prod/PIM/20260227/05/679f9783-3094-4b7e-aa2e-f42571536c9e/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/orzax/ocean-bromelain-500-mg-2400-gdu-g-takviye-edici-gida-60-kapsul-p-951800360?boutiqueId=61&merchantId=1202653"
+    },
+    {
+      "id": "995554308",
+      "ad": "Orzax Ocean Mood 30 Kapsül",
+      "kategori": "Bitkisel & Diğer",
+      "gorsel": "https://cdn.dsmcdn.com/ty1000394/product/media/images/prod/PIM/20260513/07/c8048162-0b8f-47b8-bd8d-fe2e0cbd9203/1_org_zoom.jpg",
+      "link": "https://www.trendyol.com/orzax/ocean-mood-30-kapsul-p-995554308?boutiqueId=61&merchantId=1202653"
     }
   ]
 }
