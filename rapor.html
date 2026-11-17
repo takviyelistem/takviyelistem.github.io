@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Rapor sayfasi: satis (Trendyol siparis eslestirme) ve Satin Al tiklama bolumleri eklendi ---15/11/2026---11:40 -->
+<!--- Rapor sayfasi: tiklamalar tum satis sitelerinden toplanir (id + id-hb) ---16/11/2026---23:00 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -308,6 +308,8 @@ function belgeCoz(d) {
 }
 
 const urunAdi = id => (urunHarita[id] && urunHarita[id].ad) || ('Ürün #' + id);
+// Ürünün tüm satış sitelerindeki tıklamaları: "id" (Trendyol) + "id-hb" (Hepsiburada) ...
+const urunTik = (k, id) => Object.entries(k.tik).reduce((t, [a, v]) => t + ((a === id || a.startsWith(id + '-')) ? (v || 0) : 0), 0);
 const para = n => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
 
 function filtreliKayitlar() {
@@ -365,7 +367,7 @@ function ciz() {
       const x = ur[u.id] = ur[u.id] || { liste: 0, adet: 0, tik: 0, satilan: 0 };
       x.liste++;
       x.adet += u.adet;
-      x.tik += k.tik[u.id] || 0;
+      x.tik += urunTik(k, u.id);
       if (k.satis === 'kesin') x.satilan += k.satilan[u.id] || 0;
     });
   });
@@ -443,7 +445,7 @@ function ciz() {
             <td>${esc(k.hazirlayan) || '—'}</td>
             <td class="urunler">${k.urunler.map(u => {
               const sat = k.satilan[u.id] ? ` <b style="color:#137333">✓ ${k.satilan[u.id]} alındı</b>` : '';
-              const t = k.tik[u.id] ? ` <span style="color:var(--gri)">(tıklandı)</span>` : '';
+              const t = urunTik(k, u.id) ? ` <span style="color:var(--gri)">(tıklandı)</span>` : '';
               return `<div>${esc(urunAdi(u.id))} × ${u.adet}${t}${sat}</div>`;
             }).join('')}</td>
             <td class="s">${k.acilma}</td>
@@ -470,7 +472,7 @@ $('csv').addEventListener('click', () => {
     tarihYaz(k.tarih), k.kod, k.kisi, k.hazirlayan, k.acilma,
     u.id, urunAdi(u.id), (urunHarita[u.id] && urunHarita[u.id].kategori) || '',
     u.adet, u.gunde || '', u.zaman, u.not,
-    k.tik[u.id] || 0,
+    urunTik(k, u.id),
     k.satis === 'kesin' ? 'Kesin' : k.satis === 'olasi' ? 'Olası' : '',
     k.satilan[u.id] || 0,
     k.satilanTutar[u.id] ? sayi(k.satilanTutar[u.id]) : ''

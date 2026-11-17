@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Musteri sayfasi: Satin Al tiklama takibi (urun basina, ayni cihaz 1 kez) ---15/11/2026---10:45 -->
+<!--- Musteri sayfasi: coklu satis sitesi (Trendyol/Hepsiburada) butonlari + site bazli tiklama ---16/11/2026---23:00 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -36,7 +36,9 @@
   .kullanim { margin-top:4px; font-size:14px; }
   .kullanim b { color:var(--ana); }
   .not { margin-top:6px; font-size:14px; background:#fff6ee; border-left:3px solid var(--ana); padding:6px 8px; border-radius:4px; white-space:pre-wrap; }
-  .btn { margin-top:auto; display:block; text-align:center; background:var(--ana); color:#fff; text-decoration:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; }
+  .butonlar { margin-top:auto; display:flex; flex-direction:column; gap:6px; padding-top:8px; }
+  .btn { display:block; text-align:center; background:var(--ana); color:#fff; text-decoration:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; }
+  .btn.hepsiburada { background:#ff6000; }
   .btn:active { opacity:.8; }
   .bos { text-align:center; color:var(--gri); padding:40px 10px; }
   footer { text-align:center; color:var(--gri); font-size:12px; padding:10px 0 24px; }
@@ -45,10 +47,10 @@
 <body>
 <header>
   <h1 id="baslik">Size Özel Takviye Listesi</h1>
-  <p id="altBaslik">Ürünleri Trendyol'dan güvenle satın alabilirsiniz.</p>
+  <p id="altBaslik">Ürünleri güvenle satın alabilirsiniz.</p>
 </header>
 <main id="liste"><div class="bos">Yükleniyor...</div></main>
-<footer>Her ürünün altındaki butona basarak Trendyol'daki ürün sayfasına gidebilirsiniz.</footer>
+<footer>Her ürünün altındaki butona basarak satış sitesindeki ürün sayfasına gidebilirsiniz.</footer>
 
 <script>
 //--- Ortak: Firebase (Firestore REST) kayit/okuma + acilma (o) ve urun tiklama (c) sayaclari ---15/11/2026---10:45
@@ -165,6 +167,17 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Satış siteleri (sıra = buton sırası). "ek": tıklama sayacı anahtarının son eki
+const SITELER = {
+  trendyol:    { buton: "Trendyol'da Satın Al",     ek: "" },
+  hepsiburada: { buton: "Hepsiburada'dan Satın Al", ek: "-hb" }
+};
+// urunler.json: "linkler": { "trendyol": "...", "hepsiburada": "..." }  (eski biçim "link" = Trendyol)
+function urunLinkleri(urun) {
+  const l = Object.assign({}, urun.link ? { trendyol: urun.link } : {}, urun.linkler || {});
+  return Object.keys(SITELER).filter(site => l[site]).map(site => ({ site, url: l[site] }));
+}
+
 function uzunLinkiCoz(p) {
   const u = (p.get('u') || '').trim();
   const liste = u.split(',').filter(Boolean).map(parca => {
@@ -246,7 +259,9 @@ async function baslat() {
           <div class="adet">Adet: <b>${adet}</b></div>
           ${kullanim ? `<div class="kullanim">Kullanım: ${kullanim}</div>` : ''}
           ${not ? `<div class="not">${esc(not)}</div>` : ''}
-          <a class="btn" href="${esc(urun.link)}" target="_blank" rel="noopener" data-urun="${esc(urun.id)}">Trendyol'da Satın Al</a>
+          <div class="butonlar">${urunLinkleri(urun).map(x =>
+            `<a class="btn ${x.site}" href="${esc(x.url)}" target="_blank" rel="noopener" data-urun="${esc(urun.id)}" data-site="${x.site}">${SITELER[x.site].buton}</a>`
+          ).join('')}</div>
         </div>
       </div>`;
   });
@@ -263,9 +278,10 @@ document.getElementById('liste').addEventListener('click', e => {
   const kod = (p.get('l') || '').trim();
   if (!kod || p.get('p') === '1') return;
   const id = btn.dataset.urun;
-  const anahtar = 'tik_' + kod + '_' + id;
+  const tikAnahtari = id + (SITELER[btn.dataset.site] || SITELER.trendyol).ek;   // Trendyol: "id", Hepsiburada: "id-hb"
+  const anahtar = 'tik_' + kod + '_' + tikAnahtari;
   try { if (localStorage.getItem(anahtar) === '1') return; } catch (err) {}
-  urunTiklandi(kod, id).then(() => {
+  urunTiklandi(kod, tikAnahtari).then(() => {
     try { localStorage.setItem(anahtar, '1'); } catch (err) {}
   }).catch(() => {});
 });
