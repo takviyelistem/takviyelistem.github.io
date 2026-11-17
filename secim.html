@@ -1,10 +1,17 @@
 <!DOCTYPE html>
-<!--- Secim sayfasi: arama urunun Turkce anahtar kelimelerine de bakar ---17/11/2026---22:55 -->
+<!--- Secim sayfasi: link tabani sayfanin klasoru (/secim uzantisiz acilista da dogru) + /secim?l= yonlendirme ---17/11/2026---22:45 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<script>
+// Uzantısız /secim adresinden üretilmiş hatalı linkler (/secim?l=KOD) müşteri sayfasına yönlendirilir
+(function () {
+  var p = new URLSearchParams(location.search);
+  if (p.get('l') || p.get('u')) location.replace(location.pathname.replace(/[^\/]*$/, '') + location.search);
+})();
+</script>
 <title>Takviye Seçimi</title>
 <style>
   :root { --ana:#f27a1a; --koyu:#333; --gri:#777; --zemin:#f5f5f5; --cizgi:#e3e3e3; }
@@ -2687,7 +2694,8 @@ async function linkOlustur() {
     sonImza = imza;
   }
   kaydet(true);
-  const taban = location.origin + location.pathname.replace(/secim\.html$/, '');
+  // Sayfanın bulunduğu klasör (/secim, /secim.html veya ana ekran kısayolu fark etmez) -> müşteri sayfası
+  const taban = location.origin + location.pathname.replace(/[^/]*$/, '');
   return taban + '?l=' + sonKod;
 }
 

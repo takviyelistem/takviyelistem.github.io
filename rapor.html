@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Rapor sayfasi: tiklamalar tum satis sitelerinden toplanir (id + id-hb) ---16/11/2026---23:00 -->
+<!--- Rapor sayfasi: musteri link tabani /rapor uzantisiz acilista da dogru ---17/11/2026---22:45 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -117,7 +117,7 @@ const firebaseConfig = {
 const YONETICI_UID = "EMj9VSjSZ0hY7v9AGnezZqa7J5A2";
 const HAZIRLAYANLAR = ['Admin', 'Ömer M.'];
 const DB_TABAN = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents`;
-const MUSTERI_TABAN = location.origin + location.pathname.replace(/rapor\.html$/, '');
+const MUSTERI_TABAN = location.origin + location.pathname.replace(/[^/]*$/, '');   // /rapor veya /rapor.html fark etmez
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
