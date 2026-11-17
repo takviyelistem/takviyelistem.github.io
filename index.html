@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--- Musteri sayfasi: coklu satis sitesi (Trendyol/Hepsiburada) butonlari + site bazli tiklama ---16/11/2026---23:00 -->
+<!--- Musteri sayfasi: tiklama sayaci ct anahtariyla (kural duzeltmesi) ---17/11/2026---23:00 -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -53,7 +53,7 @@
 <footer>Her ürünün altındaki butona basarak satış sitesindeki ürün sayfasına gidebilirsiniz.</footer>
 
 <script>
-//--- Ortak: Firebase (Firestore REST) kayit/okuma + acilma (o) ve urun tiklama (c) sayaclari ---15/11/2026---10:45
+//--- Ortak: tiklama sayaci "ct" anahtariyla (Rules Set.toList hatasi giderildi) ---17/11/2026---23:00
 // Firestore REST API kullanılıyor (SDK yüklemeye gerek yok).
 // Erişim izinleri Firestore Rules ile kontrol ediliyor: sadece yeni kayıt + kodla okuma.
 
@@ -156,8 +156,24 @@ async function sayacArtir(kod, alanYolu) {
 // Müşteri linki açtı -> "o" +1
 const listeAcildi = kod => sayacArtir(kod, "o");
 
-// Müşteri bir ürünün "Satın Al" butonuna bastı -> "c.<ürünId>" +1
-const urunTiklandi = (kod, urunId) => sayacArtir(kod, "c.`" + String(urunId).replace(/[`\\]/g, "") + "`");
+// Müşteri bir ürünün "Satın Al" butonuna bastı -> "c.<anahtar>" +1 ve "ct" = anahtar
+// (Rules, değişen anahtarı "ct" ile doğrular: sadece o ürünün sayacı, sadece +1)
+async function urunTiklandi(kod, anahtar) {
+  anahtar = String(anahtar).replace(/[`\\]/g, "");
+  const belge = `projects/${FIREBASE.projectId}/databases/(default)/documents/listeler/${kod}`;
+  const yanit = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents:commit?key=${FIREBASE.apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    keepalive: true,
+    body: JSON.stringify({ writes: [{
+      update: { name: belge, fields: { ct: { stringValue: anahtar } } },
+      updateMask: { fieldPaths: ["ct"] },
+      updateTransforms: [{ fieldPath: "c.`" + anahtar + "`", increment: { integerValue: "1" } }],
+      currentDocument: { exists: true }
+    }] })
+  });
+  if (!yanit.ok) throw new Error("Tıklama sayacı hatası: HTTP " + yanit.status);
+}
 </script>
 <script>
 // Link formatları:
